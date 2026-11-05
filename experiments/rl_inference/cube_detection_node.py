@@ -105,7 +105,10 @@ class CubeDetectionNode(Node):
 
         # ========== Load MaskRCNN Detection Model ==========
         self.get_logger().info(f"Loading detection model from: {model_path}")
-        self.model = maskrcnn_detection.load_from_checkpoint(model_path)
+        # the checkpoint was saved on a GPU: map it to the CPU on a machine without CUDA
+        self.model = maskrcnn_detection.load_from_checkpoint(
+            model_path, map_location=None if torch.cuda.is_available() else "cpu"
+        )
         self.model = self.model.cuda() if torch.cuda.is_available() else self.model
         self.model.eval()
 

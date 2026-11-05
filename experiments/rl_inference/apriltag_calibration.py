@@ -18,6 +18,17 @@ TRANSFORMATION OUTPUT:
 
 The ROS node will handle world_T_tag transformation separately.
 
+With --publish-tf (how cube_spin_v2.launch.py starts it, at every launch), the result is also published as the static
+TF tag_frame → <camera_name>_frame and the node keeps running, so the camera position is measured anew at every start
+and never comes from an old file. Until the tag is found there is no cube pose in the hand frame.
+
+The open hand hides the tag, so in that mode the node first closes the hand (orca_core's power_grasp pose, wrist
+unchanged; --fist / --no-fist, --fist-pose) through the hand controller's topics, measures, opens the hand back to where
+it started, and only then publishes the transform: a policy waiting for the camera position starts with the hand open.
+Without a running hand controller it measures the tag if it is visible.
+
+If the samples spread more than 1 cm (tag partly hidden, camera or tag moving), they are discarded and collected again.
+
 USAGE:
 ======
     python3 apriltag_calibration.py \
@@ -30,8 +41,13 @@ USAGE:
 """
 
 import os
+import sys
+import time
 import argparse
 import threading
+from pathlib import Path
+
+import yaml
 from typing import Optional, Tuple
 from copy import deepcopy
 
@@ -41,8 +57,12 @@ import cv2
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy, HistoryPolicy
+from rclpy.utilities import remove_ros_args
 
+from geometry_msgs.msg import TransformStamped
+from tf2_ros import StaticTransformBroadcaster
 from sensor_msgs.msg import Image
+from std_msgs.msg import Float32MultiArray
 from ingress.msg import CameraIntrinsics
 from cv_bridge import CvBridge
 
@@ -64,6 +84,22 @@ from rotation_utils import (
 
 # Import shared camera listener
 from camera_utils import CameraListener
+
+# The open hand hides the tag, so with --fist the node closes the fingers into orca_core's power_grasp pose (fractions
+# of each joint's range of motion) while it measures, and opens them again afterwards. The wrist is left where it is.
+try:
+    from orca_core.demo_poses import load_demo_poses
+    FIST_FRACTIONS = dict(load_demo_poses()["main"].pose_fractions["power_grasp"])
+except Exception:  # orca_core without demo poses: the same values as its power_grasp
+    FIST_FRACTIONS = {
+        "thumb_cmc": 0.35, "thumb_abd": 0.55, "thumb_mcp": 0.2, "thumb_dip": 0.85,
+        "index_mcp": 0.85, "middle_mcp": 0.85, "ring_mcp": 0.85, "pinky_mcp": 0.85,
+        "index_pip": 0.9, "middle_pip": 0.9, "ring_pip": 0.9, "pinky_pip": 0.9,
+    }
+FIST_FRACTIONS.pop("wrist", None)
+FIST_MOVE_S = 2.0  # time to close or open the hand
+FIST_TOLERANCE_DEG = 15.0  # the hand counts as closed when every closing joint is this close to its target
+FIST_SETTLE_TIMEOUT_S = 3.0  # measure anyway if the hand has not closed this long after the move
 
 
 # ======================== AprilTag Calibration Node ========================
@@ -87,7 +123,40 @@ class AprilTagCalibration(Node):
         self.output_file = args.output_file
         self.num_samples = args.num_samples
         self.visualize = args.visualize
-        
+        self.publish_tf = args.publish_tf
+        self.parent_frame = args.parent_frame
+        self.camera_frame = f"{self.camera_name}_frame"  # the frame cube_detection_node publishes the cube in
+        self.max_translation_std = 0.01  # m; a calibration that spreads more is collected again
+
+        # keeps the tag → camera transform on /tf_static for as long as this node runs
+        self.tf_broadcaster = StaticTransformBroadcaster(self) if self.publish_tf else None
+
+        # ---- hand: closed while measuring, as the open fingers hide the tag ----
+        # none → closing → settling → closed → (measured) opening → open. Stays "none" while no hand controller runs:
+        # then the tag is measured if it happens to be visible.
+        self.use_fist = self.publish_tf if args.fist is None else args.fist
+        self.hand_phase = "none"
+        self.hand_pos = None  # rad, in the hand config's joint order
+        self.hand_pos_time = None
+        self.last_hand_cmd = None
+        self.pending_cam_T_tag = None
+        if self.use_fist:
+            hand_cfg = yaml.safe_load(Path(args.hand_config).read_text())
+            self.hand_joints = list(hand_cfg["joint_ids"])
+            roms = hand_cfg["joint_roms"]
+            self.fist_deg = {joint: roms[joint][0] + fraction * (roms[joint][1] - roms[joint][0])
+                             for joint, fraction in FIST_FRACTIONS.items() if joint in roms}
+            for item in args.fist_pose or []:
+                joint, value = item.split("=")
+                if joint not in self.hand_joints:
+                    raise ValueError(f"--fist-pose: unknown joint {joint!r}, the hand has {self.hand_joints}")
+                self.fist_deg[joint] = float(value)
+            self.hand_cmd_pub = self.create_publisher(Float32MultiArray, args.hand_command_topic, 10)
+            self.create_subscription(Float32MultiArray, args.hand_state_topic, self.hand_state_cb, 10)
+            self.get_logger().info(
+                "✊ The hand closes while measuring: " + ", ".join(f"{j} {d:.0f}°" for j, d in self.fist_deg.items())
+            )
+
         self.get_logger().info("=" * 60)
         self.get_logger().info("📍 AprilTag Camera-to-Tag Calibration")
         self.get_logger().info("=" * 60)
@@ -140,13 +209,94 @@ class AprilTagCalibration(Node):
         
         self.get_logger().info(f"✓ AprilTag detector initialized ({self.tag_family})")
     
+    # ---------------- hand: close before measuring, open after ----------------
+
+    def hand_state_cb(self, msg: Float32MultiArray):
+        self.hand_pos = np.asarray(msg.data, dtype=np.float64)
+        self.hand_pos_time = time.monotonic()
+
+    def hand_is_live(self) -> bool:
+        return (self.hand_pos is not None and time.monotonic() - self.hand_pos_time < 1.0
+                and len(self.hand_pos) == len(self.hand_joints))
+
+    def publish_hand(self, joint_pos_rad):
+        self.last_hand_cmd = np.asarray(joint_pos_rad, dtype=np.float64)
+        self.hand_cmd_pub.publish(Float32MultiArray(data=self.last_hand_cmd.astype(np.float32).tolist()))
+
+    def start_hand_move(self, target, phase):
+        self.move_from = self.last_hand_cmd if self.last_hand_cmd is not None else self.hand_pos.copy()
+        self.move_to = np.asarray(target, dtype=np.float64)
+        self.move_t0 = time.monotonic()
+        self.hand_phase = phase
+
+    def step_hand(self) -> bool:
+        """Close the hand before measuring and open it again after. Returns True while the tag must not be sampled."""
+        now = time.monotonic()
+
+        if self.hand_phase == "none":
+            if not self.hand_is_live():
+                return False  # no hand controller (yet): measure if the tag happens to be visible
+            if not np.all(np.isfinite(self.hand_pos)):
+                self.get_logger().warn("The hand reports invalid joint positions, not closing it yet",
+                                       throttle_duration_sec=3.0)
+                return True
+            # the hand is there: close it first, dropping samples taken before, as the fingers will move
+            self.cam_T_tag_samples = []
+            self.start_pose = self.hand_pos.copy()
+            self.fist = self.start_pose.copy()
+            for joint, deg in self.fist_deg.items():
+                self.fist[self.hand_joints.index(joint)] = np.deg2rad(deg)
+            self.start_hand_move(self.fist, "closing")
+            self.get_logger().info("✊ Closing the hand so the camera sees the tag...")
+            return True
+
+        if self.hand_phase in ("closing", "opening"):
+            t = min(1.0, (now - self.move_t0) / FIST_MOVE_S)
+            self.publish_hand(self.move_from + t * (self.move_to - self.move_from))
+            if t < 1.0:
+                return True
+            if self.hand_phase == "closing":
+                self.hand_phase, self.settle_t0 = "settling", now
+                return True
+            # open again: only now may the camera position be used, so a policy starts after the hand has opened
+            self.hand_phase = "open"
+            self.get_logger().info("🖐 Hand open again")
+            self.publish_camera_tf(self.pending_cam_T_tag)
+            self.finish_publish()
+            return True
+
+        if self.hand_phase == "settling":
+            closing = [self.hand_joints.index(joint) for joint in self.fist_deg]
+            error = np.degrees(np.max(np.abs(self.hand_pos[closing] - self.fist[closing])))
+            if error > FIST_TOLERANCE_DEG and now - self.settle_t0 < FIST_SETTLE_TIMEOUT_S:
+                return True
+            if error > FIST_TOLERANCE_DEG:
+                self.get_logger().warn(f"The hand did not fully close (largest joint error {error:.0f}°), "
+                                       "measuring anyway")
+            self.hand_phase = "closed"
+            self.get_logger().info("Hand closed: measuring the camera position")
+            return False
+
+        return False  # closed: measure
+
+    def finish_publish(self):
+        """--publish-tf: the transform is out; stay alive to keep it on /tf_static, but stop detecting."""
+        self.timer.cancel()
+        self.calibration_complete = True
+        if self.visualize:
+            cv2.destroyAllWindows()
+
     def process_once(self):
         """Main processing loop - detect tag and collect samples."""
-        
+
         # Check if calibration is complete
         if self.calibration_complete:
             return
-        
+
+        # with --fist: no samples while the hand closes, settles or opens
+        if self.use_fist and self.step_hand():
+            return
+
         # Wait for camera to be ready
         if not self.listener.is_ready():
             return
@@ -165,7 +315,7 @@ class AprilTagCalibration(Node):
         
         # Convert to grayscale for AprilTag detection
         gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-        self.get_logger().info(f"running detector...")
+        self.get_logger().debug("running detector...")
         # Detect tags
         detections = self.detector.detect(
             gray,
@@ -178,11 +328,21 @@ class AprilTagCalibration(Node):
             ],
             tag_size=self.tag_size
         )
-        self.get_logger().info(f"detector finished")
+        self.get_logger().debug("detector finished")
         # Filter for our specific tag ID
         target_detections = [d for d in detections if d.tag_id == self.tag_id]
-        self.get_logger().info(f"target_detections: {len(target_detections)}")
+        self.get_logger().debug(f"target_detections: {len(target_detections)}")
         if len(target_detections) == 0:
+            self.get_logger().warn(
+                f"AprilTag {self.tag_id} ({self.tag_family}) not in view "
+                f"(tags seen: {sorted(d.tag_id for d in detections)}); the camera position is not known yet. "
+                + ("The hand is closed: something else hides the tag, or move it with --fist-pose"
+                   if self.use_fist and self.hand_phase == "closed" else
+                   "Start the hand controller: the hand then closes by itself so the camera sees the tag"
+                   if self.use_fist else
+                   "Uncover the tag for ~3 s; once the position is published, it may be covered again"),
+                throttle_duration_sec=3.0,
+            )
             if self.visualize:
                 # Show frame with "no detection" message
                 vis = img_bgr.copy()
@@ -293,9 +453,14 @@ class AprilTagCalibration(Node):
         self.get_logger().info(f"Translation std: {translation_std}")
         self.get_logger().info(f"Max translation std: {np.max(translation_std):.6f} m")
         
-        if np.max(translation_std) > 0.01:  # 1cm threshold
-            self.get_logger().warn("⚠ High variation in samples! Consider recalibrating.")
-        
+        if np.max(translation_std) > self.max_translation_std:
+            self.get_logger().warn(
+                f"⚠ Samples spread {np.max(translation_std) * 100:.1f} cm (limit {self.max_translation_std * 100:.0f} cm): "
+                "keep the camera and tag still and the tag fully visible. Collecting again..."
+            )
+            self.cam_T_tag_samples = []
+            return
+
         self.get_logger().info("\n📐 Final Camera-to-Tag Transformation (cam_T_tag):")
         self.get_logger().info(f"\n{cam_T_tag_avg}")
         
@@ -307,7 +472,7 @@ class AprilTagCalibration(Node):
         self.get_logger().info(f"  x={t[0]:.4f}, y={t[1]:.4f}, z={t[2]:.4f}")
         self.get_logger().info(f"Tag orientation in camera frame (quaternion x,y,z,w):")
         self.get_logger().info(f"  {qx:.4f}, {qy:.4f}, {qz:.4f}, {qw:.4f}")
-        
+
         # Save to file
         try:
             np.save(self.output_file, cam_T_tag_avg)
@@ -315,8 +480,21 @@ class AprilTagCalibration(Node):
             self.get_logger().info("=" * 60)
         except Exception as e:
             self.get_logger().error(f"❌ Failed to save calibration: {e}")
+            if not self.publish_tf:
+                return
+
+        if self.publish_tf:
+            if self.use_fist and self.hand_phase == "closed":
+                # open the hand first; the transform follows once it is open (step_hand), so a policy waiting for it
+                # does not start while the hand still moves
+                self.pending_cam_T_tag = cam_T_tag_avg
+                self.start_hand_move(self.start_pose, "opening")
+                self.get_logger().info("Measured: opening the hand again")
+                return
+            self.publish_camera_tf(cam_T_tag_avg)
+            self.finish_publish()
             return
-        
+
         # Show success message
         if self.visualize:
             img = np.zeros((400, 800, 3), dtype=np.uint8)
@@ -333,6 +511,27 @@ class AprilTagCalibration(Node):
         self.calibration_complete = True
         self.get_logger().info("🛑 Shutting down...")
         rclpy.shutdown()
+
+    def publish_camera_tf(self, cam_T_tag):
+        """Publish tag_T_cam as the static TF parent_frame → camera_frame (as the launch file did from the .npy)."""
+        tag_T_cam = np.linalg.inv(cam_T_tag)
+        qx, qy, qz, qw = rotation_matrix_to_quaternion(tag_T_cam[:3, :3])
+
+        msg = TransformStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = self.parent_frame
+        msg.child_frame_id = self.camera_frame
+        msg.transform.translation.x, msg.transform.translation.y, msg.transform.translation.z = (
+            float(v) for v in tag_T_cam[:3, 3]
+        )
+        msg.transform.rotation.x, msg.transform.rotation.y = float(qx), float(qy)
+        msg.transform.rotation.z, msg.transform.rotation.w = float(qz), float(qw)
+        self.tf_broadcaster.sendTransform(msg)
+
+        self.get_logger().info(
+            f"✅ Camera position published: {self.parent_frame} → {self.camera_frame} "
+            f"(camera {np.linalg.norm(tag_T_cam[:3, 3]):.3f} m from the tag)"
+        )
 
 
 # ==================== Main Entry Point ====================
@@ -400,8 +599,49 @@ def main():
         action="store_true",
         help="Show visualization window"
     )
-    
-    args = parser.parse_args()
+    parser.add_argument(
+        "--publish-tf",
+        action="store_true",
+        help="Also publish the result as static TF <parent-frame> → <camera-name>_frame and keep running "
+             "(used by cube_spin_v2.launch.py at every start)"
+    )
+    parser.add_argument(
+        "--parent-frame",
+        type=str,
+        default="tag_frame",
+        help="Frame of the AprilTag in the TF tree (default: tag_frame)"
+    )
+
+    # Hand: closed while measuring (the open fingers hide the tag)
+    try:
+        from ament_index_python.packages import get_package_share_directory
+        hand_share = Path(get_package_share_directory("hand_control"))
+    except Exception:  # not built: the source tree next to experiments/
+        hand_share = Path(__file__).resolve().parents[2] / "src" / "hand_control"
+    parser.add_argument(
+        "--fist",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Close the hand (orca_core's power_grasp, wrist unchanged) while measuring and open it again after "
+             "(default: on with --publish-tf). Acts once the hand controller publishes the joint state; "
+             "without a hand controller the tag is measured if it is visible."
+    )
+    parser.add_argument(
+        "--fist-pose",
+        nargs="*",
+        metavar="JOINT=DEG",
+        help="Change joints of the closed pose, in degrees, e.g. --fist-pose thumb_abd=10 index_mcp=95"
+    )
+    parser.add_argument(
+        "--hand-config",
+        default=str(hand_share / "orca" / "configs" / "orcahand_v2" / "right" / "config.yaml"),
+        help="Hand config.yaml with joint_ids (order of the hand topics) and joint_roms"
+    )
+    parser.add_argument("--hand-state-topic", default="/right/hand/joint_position_from_motor")
+    parser.add_argument("--hand-command-topic", default="/right/hand/policy_output")
+
+    # ros2 launch appends --ros-args ...; leave those to rclpy
+    args = parser.parse_args(remove_ros_args(args=sys.argv)[1:])
     
     print("🎯 AprilTag Camera-to-Tag Calibration")
     print("=" * 60)
@@ -430,7 +670,8 @@ def main():
             cv2.destroyAllWindows()
         except:
             pass
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":

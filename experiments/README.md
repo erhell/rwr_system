@@ -41,27 +41,27 @@ The cube detector in `rl_inference/pose_estimation` finds the cube's corners in 
 
 ### Calibrate the camera
 
-To get the cube pose relative to the hand, the camera's position is measured once against an AprilTag (`tag36h11`). Calibrate again whenever the camera or the tag moves.
+To get the cube pose relative to the hand, the camera's position is measured against an AprilTag (`tag36h11`). `cube_spin_v2.launch.py` does this **at every start**, the way the hand controller calibrates the hand: there is no calibration file, so a moved or bumped camera is never used with an old position.
 
-1. Place the tag where the camera sees it, and measure the size of its black square (without the white border).
-2. Start the camera (without `model_path:=`, the cube detector is not started):
-    ```bash
-    ros2 launch experiments cube_spin_v2.launch.py
-    ```
-3. In a second terminal, from the `experiments` folder, run the calibration with your tag's ID and size (in metres). Hold the camera and tag still for about 3 s while it collects 30 detections:
-    ```bash
-    python3 rl_inference/apriltag_calibration.py --tag-id 9 --tag-size 0.075 --output ~/camera_extrinsics.npy --visualize
-    ```
+1. Mount the tag rigidly next to the hand where the camera sees it, and measure the size of its black square (without the white border). The defaults are `tag_id:=9 tag_size:=0.075`; pass yours if they differ.
+2. The open hand hides the tag, so at every launch the `apriltag_calibration` node first closes the hand into a fist (orca_core's `power_grasp` pose, wrist unchanged) as soon as the hand controller publishes the joint state (start it before or with the launch, e.g. `enable_hand_controller:=true`). It then averages 30 detections (about 3 s), collects again if they spread more than 1 cm, opens the hand back to where it started, and only then logs `Camera position published: tag_frame → oakd_bottom_view_frame` and publishes it on `/tf_static`. Keep the camera still meanwhile, and keep the cube out of the hand until it has opened.
+3. Until then there is no cube pose relative to the hand, and the policy (`wait_for_frame`) does not command the hand, so it never fights the fist. Every 3 s the node logs why it waits (`AprilTag 9 ... not in view`, hand controller not running).
+4. If the thumb or another finger still hides the tag in the fist, change those joints (degrees) at launch, e.g. `fist_pose:='thumb_abd=10 thumb_cmc=0'`; the node logs the fist it uses at startup. Without a hand controller the tag is measured if it happens to be visible.
+5. The last result is written to `~/camera_extrinsics.npy` for reference only; the launch does not read it.
+
+To look at the detection, run the script on its own with the camera started, from the `experiments` folder: `python3 rl_inference/apriltag_calibration.py --tag-id 9 --tag-size 0.075 --output /tmp/cam_T_tag.npy --visualize`.
 
 ### Set the hand's position
 
 The launch places the hand relative to the tag with the `hand_to_tag_*` arguments: the tag's pose seen from the mount, i.e. the centre of the forearm's flat bottom face (frame `mount` in `orcahand_v2.urdf.xacro`). The mount's axes: x from the index finger towards the little finger, y out of the palm, z up the forearm.
 
+The defaults (`0.035 -0.04 0.34`, roll 60, pitch 0, yaw 0) are for the ORCA v2 stand: the hand on the post, palm up, fingers tilted 30° down towards the tag, which lies flat on the base extrusion about 27 cm from the mount towards the fingers and 20 cm below it. They were estimated from a photo of the stand (about ±1.5 cm), so do step 4 once; measure again only if the stand changes.
+
 1. Measure `hand_to_tag_x/y/z` (in metres) from the mount to the tag's centre, along the mount's axes. The mount is hidden under the forearm: it is 4.65 cm in from the index and little-finger sides, and 4.8 cm in from the palm and back sides.
 2. Find `hand_to_tag_roll/pitch/yaw` (in degrees): how the tag's axes (x red, y green, z blue into the tag, as drawn by the calibration) are turned relative to the mount's axes; roll about x, then pitch about the new y, then yaw about the new z. With the tag square to the hand, these are multiples of 90°. For example, a tag lying flat in front of the palm with its x along the mount's x: roll 180, pitch 0, yaw 0.
 3. Launch with your values, e.g.:
     ```bash
-    ros2 launch experiments cube_spin_v2.launch.py calibration:=$HOME/camera_extrinsics.npy \
+    ros2 launch experiments cube_spin_v2.launch.py \
         hand_to_tag_x:=0 hand_to_tag_y:=0.15 hand_to_tag_z:=0 hand_to_tag_roll:=180 hand_to_tag_pitch:=0 hand_to_tag_yaw:=0
     ```
 4. Check: `ros2 run tf2_ros tf2_echo mount tag_frame` prints your x/y/z, and in RViz the hand model stands where the real hand is.
@@ -79,7 +79,7 @@ The launch places the hand relative to the tag with the `hand_to_tag_*` argument
 - Joint positions look wrong after rebuilding: `calibration.yaml` lives in `install/` (see [src/hand_control/README.md](../src/hand_control/README.md)); calibrate again.
 
 **Policy**
-- `RuntimeError: The size of tensor a (74) must match the size of tensor b (81)` at startup: the policy expects a different observation than the script builds (e.g. a policy trained with the cube pose). `OBS_DIM` and the observation in the script must match the training task.
+- The script reads the policy's input size at startup and logs it: 74 = joint state only (the cube pose is only logged), 74 + 7 × N = trained with the last N camera poses (`object_pos` + `object_quat` per frame; faive_lab r24: 81, r25: 95), which then come from the camera (start the cube detector with `model_path:=`; the policy waits for the first detection and keeps the last detected pose while the cube is lost). r25 is trained on 1.2-2.0 rad/s, so run it with `goal_ang_vel` in that range (e.g. 1.5). `The policy accepts none of [...] observations`: the training task's observation differs; the observation in the script must match it.
 
 **Cube detection**
 - `checkpoint.pth.tar not found` when the detector starts: the model files are not downloaded yet; run `experiments/rl_inference/pose_estimation/download_models.sh`.

@@ -2,16 +2,18 @@
 # -*- coding: utf-8 -*-
 """
 Policy Inference Node for the ORCA v2 hand - runs an rsl_rl policy trained in faive_lab
-(task orca-v2-inhand-repose-v0, proprioception only) on the real hand.
+(task orca-v2-inhand-repose-v0) on the real hand, with or without the cube pose from the camera.
 
 The policy is the TorchScript file that faive_lab's play.py exports (logs/rsl_rl/orca_v2_repose/<run>/exported/policy.pt);
 it includes the observation normalisation, so it takes the raw observation vector.
 
 Every 1/policy_hz seconds:
 1. Read the hand's joint positions and velocities (radians, in the order of the hand's config.yaml joint_ids)
-2. Build the policy observation exactly as in the simulation (USD joint order, 74 values):
+2. Build the policy observation exactly as in the simulation (USD joint order, 74 values, or 81 with the cube pose):
        joint_pos       joint positions normalised to [-1, 1] over the joint limits
        joint_vel       joint velocities * 0.2
+       object_pos      cube position in the simulation's frame (only for a policy trained with the cube pose)
+       object_quat     cube orientation (w, x, y, z) in the simulation's frame (idem)
        goal_command    [0, 0, -0.05, 0, 0, angular velocity about z]
        last_action     the policy's previous raw output
        last_joint_cmd  the previous joint position command (radians)
@@ -20,8 +22,11 @@ Every 1/policy_hz seconds:
 4. Publish the joint position command on /right/hand/policy_output, which hand_control_node executes (unless dry_run)
 
 Subtask 2 (exteroception): every step the node also reads the cube pose from TF (hand_root -> cube, published by
-cube_spin_v2.launch.py and cube_detection_node) and converts it to object_pos / object_quat as in the simulation. They are
-logged, but not part of the observation (commented out in process_once).
+cube_spin_v2.launch.py and cube_detection_node) and converts it to object_pos / object_quat as in the simulation. The
+policy's input size decides whether they are part of the observation: a 74-input policy only logs them, a policy with
+74 + 7 * N inputs (trained with N camera frames of [object_pos, object_quat], faive_lab task r24: N = 1, r25: N = 3) gets
+the last N poses every step, oldest first. Such a policy waits for the first detection (which then fills all N frames),
+and keeps the last detected pose while the cube is not tracked.
 
 The joint limits, observation order and scales below must match the training task (orca_v2_repose_env_cfg.py).
 
@@ -70,7 +75,9 @@ JOINT_LIMITS_USD_DEG = {
     "thumb_mcp": (-25.0, 100.0),
     "thumb_dip": (-15.0, 107.0),
 }
-OBS_DIM = 17 + 17 + 6 + 17 + 17
+OBS_DIM = 17 + 17 + 6 + 17 + 17     # proprioception only
+CUBE_POSE_DIM = 3 + 4               # object_pos and object_quat from the camera, per frame
+MAX_CUBE_FRAMES = 5
 
 
 class PolicyInferenceNodeV2(Node):
@@ -94,6 +101,10 @@ class PolicyInferenceNodeV2(Node):
         self.declare_parameter("hand_frame_id", "hand_root")
         self.declare_parameter("cube_frame_id", "cube")
         self.declare_parameter("cube_pose_timeout_s", 0.5)  # an older cube pose counts as not tracked
+        # non-empty: do not command the hand before hand_frame -> this frame exists in TF. cube_spin_v2.launch.py sets
+        # the camera frame, which apriltag_calibration.py publishes only after it has closed the hand, measured the
+        # tag and opened the hand again; until then the policy would fight that motion
+        self.declare_parameter("wait_for_frame", "")
 
         self.policy_ckpt_path = self.get_parameter("policy_ckpt_path").value
         self.policy_hz = float(self.get_parameter("policy_hz").value)
@@ -105,6 +116,8 @@ class PolicyInferenceNodeV2(Node):
         self.hand_frame = self.get_parameter("hand_frame_id").value
         self.cube_frame = self.get_parameter("cube_frame_id").value
         self.cube_pose_timeout_s = float(self.get_parameter("cube_pose_timeout_s").value)
+        self.wait_for_frame = self.get_parameter("wait_for_frame").value
+        self.frame_ready = not self.wait_for_frame
 
         # ========== Joint orders and limits ==========
         # the hand driver publishes and accepts joints in the order of config.yaml's joint_ids
@@ -122,10 +135,27 @@ class PolicyInferenceNodeV2(Node):
         if not self.policy_ckpt_path:
             raise ValueError("Set policy_ckpt_path to the exported policy.pt (faive_lab logs/.../exported/policy.pt)")
         self.policy = torch.jit.load(self.policy_ckpt_path, map_location="cpu").eval()
-        with torch.no_grad():
-            out = self.policy(torch.zeros(1, OBS_DIM))
+        # the input size tells whether the policy was trained with the cube pose (camera feedback) or without
+        self.obs_dim = None
+        candidates = [OBS_DIM + CUBE_POSE_DIM * frames for frames in range(MAX_CUBE_FRAMES + 1)]
+        for obs_dim in candidates:
+            try:
+                with torch.no_grad():
+                    out = self.policy(torch.zeros(1, obs_dim))
+            except RuntimeError:
+                continue
+            self.obs_dim = obs_dim
+            break
+        if self.obs_dim is None:
+            raise ValueError(f"The policy accepts none of {candidates} observations")
         assert out.shape[-1] == 17, f"policy outputs {out.shape[-1]} actions, expected 17"
-        self.get_logger().info(f"Loaded policy {self.policy_ckpt_path} ({OBS_DIM} observations -> 17 actions)")
+        self.num_cube_frames = (self.obs_dim - OBS_DIM) // CUBE_POSE_DIM
+        self.use_cube_obs = self.num_cube_frames > 0
+        inputs = (f"with the last {self.num_cube_frames} cube pose(s) from the camera" if self.use_cube_obs
+                  else "without the cube pose (only logged)")
+        self.get_logger().info(
+            f"Loaded policy {self.policy_ckpt_path} ({self.obs_dim} observations -> 17 actions), {inputs}"
+        )
 
         # ========== ROS2 Publishers and Subscribers ==========
         self.hand_pub = self.create_publisher(Float32MultiArray, self.get_parameter("command_topic").value, 10)
@@ -135,7 +165,9 @@ class PolicyInferenceNodeV2(Node):
         # ========== TF2 Listener ==========
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
+        self.last_object_pos = None
         self.last_object_quat = None
+        self.cube_frames = None  # the last num_cube_frames [pos, quat] given to the policy, oldest first
 
         # ========== State (USD order) ==========
         self.current_joint_pos = None  # robot order, radians
@@ -153,7 +185,7 @@ class PolicyInferenceNodeV2(Node):
         if csv_log_path:
             self.csv_file = open(csv_log_path, "w", newline="")
             self.csv_writer = csv.writer(self.csv_file)
-            self.csv_writer.writerow(["time"] + [f"obs_{i}" for i in range(OBS_DIM)]
+            self.csv_writer.writerow(["time"] + [f"obs_{i}" for i in range(self.obs_dim)]
                                      + [f"cmd_{name}" for name in self.joint_order_usd]
                                      + ["cube_x", "cube_y", "cube_z", "cube_qw", "cube_qx", "cube_qy", "cube_qz"])
 
@@ -198,6 +230,15 @@ class PolicyInferenceNodeV2(Node):
         if not (np.all(np.isfinite(joint_pos_usd)) and np.all(np.isfinite(joint_vel_usd))):
             self.get_logger().warn("Non-finite joint state, skipping this step", throttle_duration_sec=1.0)
             return
+        if not self.frame_ready:
+            # before the first step, so the policy starts (moving average, last action) from the pose after it
+            if not self.tf_buffer.can_transform(self.hand_frame, self.wait_for_frame, Time()):
+                self.get_logger().info(f"Waiting for the camera calibration ({self.hand_frame} -> "
+                                       f"{self.wait_for_frame}): the hand closes, the tag is measured, the hand "
+                                       "opens again...", throttle_duration_sec=2.0)
+                return
+            self.frame_ready = True
+            self.get_logger().info("Camera calibrated, starting the policy")
 
         now = self.get_clock().now().nanoseconds * 1e-9
         if self.start_time is None:
@@ -235,18 +276,30 @@ class PolicyInferenceNodeV2(Node):
             # q and -q are the same rotation; the simulation's quaternion changes continuously, so keep the previous sign
             if self.last_object_quat is not None and np.dot(object_quat, self.last_object_quat) < 0:
                 object_quat = -object_quat
-            self.last_object_quat = object_quat
+            self.last_object_pos, self.last_object_quat = object_pos, object_quat
+        tracked = object_pos is not None
+
+        if self.use_cube_obs and not tracked:
+            # the policy needs a cube pose every step: wait for the first detection, then keep the last detected pose
+            if self.last_object_pos is None:
+                self.get_logger().info("Waiting for the first cube detection...", throttle_duration_sec=2.0)
+                return
+            self.get_logger().warn("Cube not tracked, using its last detected pose", throttle_duration_sec=1.0)
+            object_pos, object_quat = self.last_object_pos, self.last_object_quat
+        if self.use_cube_obs:
+            # one frame per policy step, as in the simulation; the first pose fills all frames
+            pose = np.concatenate([object_pos, object_quat])
+            if self.cube_frames is None:
+                self.cube_frames = [pose] * self.num_cube_frames
+            else:
+                self.cube_frames = self.cube_frames[1:] + [pose]
 
         # === observation, in the task's order ===
-        obs = np.concatenate([
-            self.normalize(joint_pos_usd),
-            joint_vel_usd * self.velocity_obs_scale,
-            # object_pos,
-            # object_quat,
-            self.goal_command,
-            self.last_action_usd,
-            self.last_joint_cmd_usd,
-        ]).astype(np.float32)
+        obs = np.concatenate(
+            [self.normalize(joint_pos_usd), joint_vel_usd * self.velocity_obs_scale]
+            + (self.cube_frames if self.use_cube_obs else [])
+            + [self.goal_command, self.last_action_usd, self.last_joint_cmd_usd]
+        ).astype(np.float32)
 
         # === policy ===
         with torch.no_grad():
@@ -261,7 +314,6 @@ class PolicyInferenceNodeV2(Node):
 
         if not self.dry_run:
             self.hand_pub.publish(numpy_to_float32_multiarray(target_usd[self.usd_to_robot_idx]))
-        tracked = object_pos is not None
         if self.csv_writer is not None:
             cube = np.concatenate([object_pos, object_quat]).tolist() if tracked else [float("nan")] * 7
             self.csv_writer.writerow([now - self.start_time] + obs.tolist() + target_usd.tolist() + cube)

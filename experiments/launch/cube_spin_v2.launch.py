@@ -6,14 +6,17 @@ This launch file combines everything needed for the complete system:
 1. Robot hand visualization (URDF + state publisher), showing the pose measured by the motors
 2. Hand controller node
 3. OakD camera
-4. Static TF publishers (tag→camera, tag→hand_root)
+4. Camera position from the AprilTag, measured anew at every start (tag→camera), and the static TF tag→hand_root
 5. Cube detection node
 6. Policy inference node (policy_inference_cube_spin_v2.py)
 7. RViz2 visualization
 
+The tag must be visible to the camera at startup: until it is found, there is no cube pose in the hand frame and a
+policy that uses the cube waits.
+
 Command line usage:
     ros2 launch experiments cube_spin_v2.launch.py \
-        calibration:=/path/to/camera_extrinsics.npy \
+        tag_id:=9 tag_size:=0.075 \
         model_path:=/path/to/pose_estimation/finetuned_models/maskrcnn-finetuned_lightning_new_adamw.ckpt \
         policy:=/path/to/exported/policy.pt \
         enable_hand_controller:=true
@@ -32,13 +35,21 @@ import xacro
 def generate_launch_description():
     """Generate launch description with all arguments"""
     
-    # ===== Calibration and Policy Arguments =====
-    calibration_arg = DeclareLaunchArgument(
-        'calibration',
-        default_value='',
-        description='Path to camera calibration file (cam_T_tag as .npy)'
+    # ===== Camera Calibration (AprilTag) and Policy Arguments =====
+    # the camera position is measured from this tag at every start, there is no calibration file to pass
+    tag_id_arg = DeclareLaunchArgument('tag_id', default_value='9', description='ID of the AprilTag next to the hand')
+    tag_size_arg = DeclareLaunchArgument(
+        'tag_size',
+        default_value='0.075',
+        description="Side of the tag's black square in metres (without the white border)"
     )
-    
+    tag_family_arg = DeclareLaunchArgument('tag_family', default_value='tag36h11', description='AprilTag family')
+    fist_pose_arg = DeclareLaunchArgument(
+        'fist_pose',
+        default_value='',
+        description="Change joints of the fist the hand makes while the tag is measured, e.g. 'thumb_abd=10 index_mcp=95'"
+    )
+
     policy_arg = DeclareLaunchArgument(
         'policy',
         default_value='',
@@ -51,6 +62,12 @@ def generate_launch_description():
         description='true: the policy computes and logs actions but does not command the hand'
     )
 
+    goal_ang_vel_arg = DeclareLaunchArgument(
+        'goal_ang_vel',
+        default_value='1.0',
+        description='commanded spin speed about z in rad/s, the sign sets the direction (r25 is trained on 1.2-2.0)'
+    )
+
     model_path_arg = DeclareLaunchArgument(
         'model_path',
         default_value='',
@@ -60,13 +77,15 @@ def generate_launch_description():
 
     # ===== Tag to Hand Transform Arguments =====
     # Pose of the tag seen from the mount (mount_T_tag): x/y/z along the mount's axes, roll/pitch/yaw of the tag relative to them
-    # NOTE: these defaults were measured for the ORCA v1b mount. Measure them again for your ORCA v2 setup.
-    hand_to_tag_x_arg = DeclareLaunchArgument('hand_to_tag_x', default_value='0.0')
-    hand_to_tag_y_arg = DeclareLaunchArgument('hand_to_tag_y', default_value='0.05')
-    hand_to_tag_z_arg = DeclareLaunchArgument('hand_to_tag_z', default_value='0.055')
-    hand_to_tag_roll_arg = DeclareLaunchArgument('hand_to_tag_roll', default_value='90')
+    # NOTE: these defaults are for the ORCA v2 stand: hand on the post, palm up, fingers tilted 30 deg down towards the tag,
+    # which lies flat on the base extrusion (tag 27 cm from the mount towards the fingers, 20 cm below it). Estimated from a
+    # photo of the stand (about +-1.5 cm); measure them again if the stand changes.
+    hand_to_tag_x_arg = DeclareLaunchArgument('hand_to_tag_x', default_value='0.035')
+    hand_to_tag_y_arg = DeclareLaunchArgument('hand_to_tag_y', default_value='-0.04')
+    hand_to_tag_z_arg = DeclareLaunchArgument('hand_to_tag_z', default_value='0.34')
+    hand_to_tag_roll_arg = DeclareLaunchArgument('hand_to_tag_roll', default_value='60')
     hand_to_tag_pitch_arg = DeclareLaunchArgument('hand_to_tag_pitch', default_value='0')
-    hand_to_tag_yaw_arg = DeclareLaunchArgument('hand_to_tag_yaw', default_value='180')
+    hand_to_tag_yaw_arg = DeclareLaunchArgument('hand_to_tag_yaw', default_value='0')
     
     # ===== Camera Arguments =====
     camera_name_arg = DeclareLaunchArgument(
@@ -92,9 +111,13 @@ def generate_launch_description():
     nodes = OpaqueFunction(function=launch_setup)
     
     return LaunchDescription([
-        calibration_arg,
+        tag_id_arg,
+        tag_size_arg,
+        tag_family_arg,
+        fist_pose_arg,
         policy_arg,
         dry_run_arg,
+        goal_ang_vel_arg,
         model_path_arg,
         hand_to_tag_x_arg,
         hand_to_tag_y_arg,
@@ -114,9 +137,13 @@ def launch_setup(context, *args, **kwargs):
     from scipy.spatial.transform import Rotation as R
     
     # Get launch arguments
-    calibration_file = LaunchConfiguration('calibration').perform(context)
+    tag_id = int(LaunchConfiguration('tag_id').perform(context))
+    tag_size = float(LaunchConfiguration('tag_size').perform(context))
+    tag_family = LaunchConfiguration('tag_family').perform(context)
+    fist_pose = LaunchConfiguration('fist_pose').perform(context).split()
     policy_file = LaunchConfiguration('policy').perform(context)
     dry_run = LaunchConfiguration('dry_run').perform(context).lower() == 'true'
+    goal_ang_vel = float(LaunchConfiguration('goal_ang_vel').perform(context))
     model_path = LaunchConfiguration('model_path').perform(context)
     hand_to_tag_x = float(LaunchConfiguration('hand_to_tag_x').perform(context))
     hand_to_tag_y = float(LaunchConfiguration('hand_to_tag_y').perform(context))
@@ -208,30 +235,30 @@ def launch_setup(context, *args, **kwargs):
         ]
     )
     
-    # 4b. Tag → Camera (from calibration file - cam_T_tag inverted to get tag_T_cam)
-    static_tf_tag_to_camera = None
-    if os.path.exists(calibration_file):
-        cam_T_tag = np.load(calibration_file)
-        tag_T_cam = np.linalg.inv(cam_T_tag)
-        
-        cam_t = tag_T_cam[:3, 3]
-        cam_rot_matrix = tag_T_cam[:3, :3]
-        cam_quat = R.from_matrix(cam_rot_matrix).as_quat()
-        
-        static_tf_tag_to_camera = Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='static_tf_tag_to_camera',
-            arguments=[
-                str(cam_t[0]), str(cam_t[1]), str(cam_t[2]),
-                str(cam_quat[0]), str(cam_quat[1]), str(cam_quat[2]), str(cam_quat[3]),
-                'tag_frame', f'{camera_name}_frame'
-            ]
-        )
-    else:
-        print(f"WARNING: Calibration file not found: {calibration_file}")
-        print("Skipping tag→camera TF publisher. Cube detection will not work without calibration.")
-    
+    # 4b. Tag → Camera: measured from the AprilTag at every start (like the hand calibration), never loaded from a file,
+    # so a camera that was moved or bumped is never used with an old position. The node averages 30 detections
+    # (about 3 s, collected again if they spread more than 1 cm), publishes tag_frame → <camera_name>_frame on
+    # /tf_static and keeps running. Until then hand_root → cube does not exist and a policy using the cube waits.
+    # The open hand hides the tag: once the hand controller runs, the node closes the hand (orca_core's power_grasp,
+    # wrist unchanged), measures, opens it back to where it started and only then publishes; the policy waits for that
+    # (wait_for_frame below). Without a hand controller it measures the tag if it is visible.
+    # The last result is also written to ~/camera_extrinsics.npy, only for reference.
+    camera_calibration_node = Node(
+        package='experiments',
+        executable='apriltag_calibration.py',
+        name='apriltag_calibration',
+        output='screen',
+        arguments=[
+            '--camera-topic', f'/{camera_name}/color',
+            '--camera-name', camera_name,
+            '--tag-family', tag_family,
+            '--tag-id', str(tag_id),
+            '--tag-size', str(tag_size),
+            '--output', os.path.expanduser('~/camera_extrinsics.npy'),
+            '--publish-tf',
+        ] + (['--fist-pose'] + fist_pose if fist_pose else []),
+    )
+
     # ===== 5. Cube Detection Node =====
     cube_detection_node = None
     if model_path:
@@ -260,6 +287,9 @@ def launch_setup(context, *args, **kwargs):
             parameters=[{
                 'policy_ckpt_path': os.path.expanduser(policy_file),
                 'dry_run': dry_run,
+                'goal_ang_vel': goal_ang_vel,
+                # do not command the hand before the camera calibration has closed and opened it again
+                'wait_for_frame': f'{camera_name}_frame',
                 'hand_config_path': os.path.join(
                     get_package_share_directory('hand_control'),
                     'orca', 'configs', 'orcahand_v2', 'right', 'config.yaml'
@@ -304,19 +334,16 @@ def launch_setup(context, *args, **kwargs):
         visualize_joints,
         oakd_node,
         
-        # TF publishers (camera → tag → hand)
+        # TF: camera position from the AprilTag (measured at every start), tag → hand
+        camera_calibration_node,
         static_tf_tag_to_hand,
-        
+
         # Detection and policy
         cube_detection_node,
         
         # Visualization
         rviz_node,
     ]
-    
-    # Add optional tag→camera TF if calibration exists
-    if static_tf_tag_to_camera is not None:
-        nodes_to_launch.insert(4, static_tf_tag_to_camera)  # Insert after static_tf_hand_to_tag
     
     # Add optional policy node
     if policy_inference_node is not None:
