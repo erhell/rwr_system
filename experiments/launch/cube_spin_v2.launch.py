@@ -11,8 +11,8 @@ This launch file combines everything needed for the complete system:
 6. Policy inference node (policy_inference_cube_spin_v2.py)
 7. RViz2 visualization
 
-The tag must be visible to the camera at startup: until it is found, there is no cube pose in the hand frame and a
-policy that uses the cube waits.
+The tag must be visible to the camera at startup: until it is found, there is no cube pose in the hand frame and the
+policy waits. After that an r26 policy runs with or without cube detections; an r24/r25 policy waits for the first one.
 
 Command line usage:
     ros2 launch experiments cube_spin_v2.launch.py \
@@ -65,7 +65,7 @@ def generate_launch_description():
     goal_ang_vel_arg = DeclareLaunchArgument(
         'goal_ang_vel',
         default_value='1.0',
-        description='commanded spin speed about z in rad/s, the sign sets the direction (r25 is trained on 1.2-2.0)'
+        description='commanded spin speed about z in rad/s, the sign sets the direction (r25 and r26 are trained on 1.2-2.0)'
     )
 
     model_path_arg = DeclareLaunchArgument(

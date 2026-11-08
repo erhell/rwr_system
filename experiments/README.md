@@ -24,6 +24,7 @@ Useful parameters (add each as `-p name:=value`):
 | `goal_flip_period_s` | `0.0` | if > 0, flip the spin direction every this many seconds |
 | `csv_log_path` | `""` | if set, log observations, joint commands and the cube pose to this CSV file |
 | `policy_hz` | `20.0` | policy rate; must match the training task |
+| `cube_max_age_s` | `1.0` | r26 policies: a cube detection this old counts as "no camera"; must match `max_age_s` of the training task |
 
 The joint limits, observation order and scales in the script must match the faive_lab task (`orca_v2_repose_env_cfg.py`).
 
@@ -79,7 +80,13 @@ The defaults (`0.035 -0.04 0.34`, roll 60, pitch 0, yaw 0) are for the ORCA v2 s
 - Joint positions look wrong after rebuilding: `calibration.yaml` lives in `install/` (see [src/hand_control/README.md](../src/hand_control/README.md)); calibrate again.
 
 **Policy**
-- The script reads the policy's input size at startup and logs it: 74 = joint state only (the cube pose is only logged), 74 + 7 × N = trained with the last N camera poses (`object_pos` + `object_quat` per frame; faive_lab r24: 81, r25: 95), which then come from the camera (start the cube detector with `model_path:=`; the policy waits for the first detection and keeps the last detected pose while the cube is lost). r25 is trained on 1.2-2.0 rad/s, so run it with `goal_ang_vel` in that range (e.g. 1.5). `The policy accepts none of [...] observations`: the training task's observation differs; the observation in the script must match it.
+- The script reads the policy's input size at startup and logs it:
+    - 74 = joint state only (the cube pose is only logged).
+    - 74 + 8 × N = trained with the last N cube detections and their age (faive_lab r26: 98). Such a policy uses the camera when the detector sees the cube and spins on the joint state alone when it does not: it starts without waiting for a detection, and runs without the camera or without `model_path:=`. The log says when it switches (`No cube detection for 1.0 s: the policy runs on the joint state only ...`, `Cube detected: the policy uses the camera`).
+    - 74 + 7 × N = trained with the last N camera poses (`object_pos` + `object_quat` per frame; r24: 81, r25: 95). These need the camera: start the cube detector with `model_path:=`; the policy waits for the first detection and keeps the last detected pose while the cube is lost.
+- r25 and r26 are trained on 1.2-2.0 rad/s, so run them with `goal_ang_vel` in that range (e.g. 1.5).
+- `The policy accepts none of [...] observations`: the training task's observation differs; the observation in the script must match it.
+- Before training a camera policy, run `rl_inference/measure_cube_noise.py` (see its header) to get the camera model's values for the simulation: noise, delay, how often the detector delivers a pose, outages.
 
 **Cube detection**
 - `checkpoint.pth.tar not found` when the detector starts: the model files are not downloaded yet; run `experiments/rl_inference/pose_estimation/download_models.sh`.

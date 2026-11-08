@@ -220,7 +220,33 @@ class CubeDetectionNode(Node):
         q = (s0 * q0) + (s1 * q1)
         return q / np.linalg.norm(q)
 
+    def _reset_tracking(self):
+        """The cube is lost: forget its last pose (the PnP initial guess) and the filters, so that the next detection
+        starts fresh instead of being blended with where the cube was before it was lost."""
+        self.last_valid_pose = None
+        self.last_pose_time = None
+        self.consecutive_failures = 0
+        self.kf_initialized = False
+        self.last_filtered_quat = None
+
+    def _count_failure(self):
+        """A frame without a usable pose; after max_failures_before_reset in a row the cube counts as lost."""
+        self.consecutive_failures += 1
+        if self.consecutive_failures >= self.max_failures_before_reset:
+            if self.kf_initialized or self.last_valid_pose is not None:
+                self.get_logger().info(f"[{self.listener.name}] Cube lost, resetting its last pose and the filters")
+            self._reset_tracking()
+
     def process_once(self):
+        # a frame that fails must not stop the node: without a new pose the policy just sees the detection age grow
+        try:
+            self._process_frame()
+        except Exception as e:  # noqa: BLE001
+            self.get_logger().error(f"[{self.listener.name}] Cube detection failed on this frame: {e!r}",
+                                    throttle_duration_sec=2.0)
+            self._count_failure()
+
+    def _process_frame(self):
         """
         Main processing loop:
         1. Get camera frame
@@ -242,10 +268,8 @@ class CubeDetectionNode(Node):
         
         # Reset last valid pose if too old (prevents getting stuck with stale pose)
         if self.last_pose_time is not None and (frame_time - self.last_pose_time) > self.pose_timeout:
-            self.get_logger().info(f"[{self.listener.name}] Resetting last pose (timeout)")
-            self.last_valid_pose = None
-            self.last_pose_time = None
-            self.consecutive_failures = 0
+            self.get_logger().info(f"[{self.listener.name}] Resetting last pose and filters (timeout)")
+            self._reset_tracking()
 
         # === Step 2: Run MaskRCNN Detection ===
         rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
@@ -256,25 +280,11 @@ class CubeDetectionNode(Node):
         with torch.no_grad():
             output = self.model.get_detections([rgb_tensor])[0]
 
-        is_failure = False
-        if output is None or len(output["keypoints"]) == 0:
+        # no cube, or not confident enough: no pose from this frame
+        no_cube = output is None or len(output["keypoints"]) == 0 or len(output["scores"]) == 0
+        if no_cube or output["scores"].max().item() < 0.3:
             self.get_logger().debug(f"[{self.listener.name}] No cube detected")
-            self.consecutive_failures += 1
-            is_failure = True
-        scores = output["scores"].detach().cpu()
-        if len(scores) == 0:
-            is_failure = True
-        else:
-            best_idx = int(scores.argmax().item())
-            if  scores[best_idx].item() < 0.3:
-                is_failure = True
-        
-        if self.consecutive_failures >= self.max_failures_before_reset:
-            self.get_logger().info(f"[{self.listener.name}] Too many failures, resetting last pose")
-            self.last_valid_pose = None
-            self.last_pose_time = None
-            self.consecutive_failures = 0
-        if is_failure:
+            self._count_failure()
             return
         # === Step 3: Extract Keypoints and Run Robust PnP ===
         kpts = output["keypoints"].cpu().numpy()[0]
@@ -298,12 +308,7 @@ class CubeDetectionNode(Node):
         still_success = True
         if not ret or inliers is None or len(inliers) < self.min_inliers:
             self.get_logger().warn(f"[{self.listener.name}] PnP RANSAC failed or too few inliers")
-            self.consecutive_failures += 1
-            if self.consecutive_failures >= self.max_failures_before_reset:
-                self.get_logger().info(f"[{self.listener.name}] Too many RANSAC failures, resetting last pose")
-                self.last_valid_pose = None
-                self.last_pose_time = None
-                self.consecutive_failures = 0
+            self._count_failure()
             still_success = False
 
         if still_success:
@@ -339,12 +344,7 @@ class CubeDetectionNode(Node):
             
             if not ret:
                 self.get_logger().warn(f"[{self.listener.name}] PnP refinement failed")
-                self.consecutive_failures += 1
-                if self.consecutive_failures >= self.max_failures_before_reset:
-                    self.get_logger().info(f"[{self.listener.name}] Too many refinement failures, resetting last pose")
-                    self.last_valid_pose = None
-                    self.last_pose_time = None
-                    self.consecutive_failures = 0
+                self._count_failure()
                 still_success = False
             
         # Validate refined result by comparing with RANSAC result
@@ -374,11 +374,7 @@ class CubeDetectionNode(Node):
             distance = np.linalg.norm(t)
             if distance > 2.0 or distance < 0.05:  # Between 5cm and 2m
                 self.get_logger().warn(f"[{self.listener.name}] Unreasonable distance: {distance:.3f}m, skipping")
-                self.consecutive_failures += 1
-                if self.consecutive_failures >= self.max_failures_before_reset:
-                    self.last_valid_pose = None
-                    self.last_pose_time = None
-                    self.consecutive_failures = 0
+                self._count_failure()
                 still_success = False
             
         # Success! Reset failure counter and update last valid pose

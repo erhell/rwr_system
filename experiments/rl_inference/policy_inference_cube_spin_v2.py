@@ -23,10 +23,16 @@ Every 1/policy_hz seconds:
 
 Subtask 2 (exteroception): every step the node also reads the cube pose from TF (hand_root -> cube, published by
 cube_spin_v2.launch.py and cube_detection_node) and converts it to object_pos / object_quat as in the simulation. The
-policy's input size decides whether they are part of the observation: a 74-input policy only logs them, a policy with
-74 + 7 * N inputs (trained with N camera frames of [object_pos, object_quat], faive_lab task r24: N = 1, r25: N = 3) gets
-the last N poses every step, oldest first. Such a policy waits for the first detection (which then fills all N frames),
-and keeps the last detected pose while the cube is not tracked.
+policy's input size decides whether and how they are part of the observation:
+- 74 inputs: joint state only, the cube pose is only logged.
+- 74 + 8 * N (faive_lab r26: N = 3, 98 inputs): the last N cube detections, oldest first, each as
+  [object_pos, object_quat, age / cube_max_age_s], where age = now - the image's time stamp. A detection
+  cube_max_age_s or older, or a slot without one yet, is [0] * 7 + [1]: "no camera". The policy was trained with
+  detections missing, delayed, hidden for up to 2 s and with no camera at all, so it never waits for the cube: it
+  starts on the joint state alone and uses the cube pose whenever the detector delivers one.
+- 74 + 7 * N (r24: N = 1, r25: N = 3): the last N poses [object_pos, object_quat], one per policy step. These policies
+  were trained with a pose every step, so they wait for the first detection (which then fills all N frames) and keep
+  the last detected pose while the cube is not tracked.
 
 The joint limits, observation order and scales below must match the training task (orca_v2_repose_env_cfg.py).
 
@@ -35,6 +41,7 @@ Usage (hand driver running, e.g. `ros2 launch hand_control orcahand_v2_controlle
 """
 
 import csv
+from collections import deque
 from pathlib import Path
 
 import numpy as np
@@ -76,8 +83,22 @@ JOINT_LIMITS_USD_DEG = {
     "thumb_dip": (-15.0, 107.0),
 }
 OBS_DIM = 17 + 17 + 6 + 17 + 17     # proprioception only
-CUBE_POSE_DIM = 3 + 4               # object_pos and object_quat from the camera, per frame
+CUBE_POSE_DIM = 3 + 4               # object_pos and object_quat from the camera, per frame (r24, r25)
+CUBE_DETECTION_DIM = 3 + 4 + 1      # object_pos, object_quat and the detection's age, per frame (r26)
+NO_DETECTION = np.array([0.0] * CUBE_POSE_DIM + [1.0], dtype=np.float32)
 MAX_CUBE_FRAMES = 5
+
+# The simulation observes the cube in its world frame (mdp.root_pos_w), so the cube pose is converted from hand_root
+# to that frame: robot init_state pos (0.0004, 0.1512, -0.0187), rot (w, x, y, z) (-0.2607, 0.9654, 0, 0) of the root
+# link right_forearm, and hand_root -> forearm 90 deg about x (orcahand_v2.urdf.xacro): 120.2 deg about x.
+# If your simulator observes the cube relative to the hand instead, note that the robot's root link is forearm, not
+# hand_root: use forearm_T_hand_root (90 deg about -x) @ hand_T_cube.
+OBS_T_HAND = np.array([
+    [1.0,  0.0,     0.0,     0.0004],
+    [0.0, -0.5034, -0.8641,  0.1512],
+    [0.0,  0.8641, -0.5034, -0.0187],
+    [0.0,  0.0,     0.0,     1.0],
+])
 
 
 class PolicyInferenceNodeV2(Node):
@@ -101,6 +122,8 @@ class PolicyInferenceNodeV2(Node):
         self.declare_parameter("hand_frame_id", "hand_root")
         self.declare_parameter("cube_frame_id", "cube")
         self.declare_parameter("cube_pose_timeout_s", 0.5)  # an older cube pose counts as not tracked
+        # r26 policies: a detection this old reads as "no camera"; must match max_age_s of the training task
+        self.declare_parameter("cube_max_age_s", 1.0)
         # non-empty: do not command the hand before hand_frame -> this frame exists in TF. cube_spin_v2.launch.py sets
         # the camera frame, which apriltag_calibration.py publishes only after it has closed the hand, measured the
         # tag and opened the hand again; until then the policy would fight that motion
@@ -116,6 +139,7 @@ class PolicyInferenceNodeV2(Node):
         self.hand_frame = self.get_parameter("hand_frame_id").value
         self.cube_frame = self.get_parameter("cube_frame_id").value
         self.cube_pose_timeout_s = float(self.get_parameter("cube_pose_timeout_s").value)
+        self.cube_max_age_s = float(self.get_parameter("cube_max_age_s").value)
         self.wait_for_frame = self.get_parameter("wait_for_frame").value
         self.frame_ready = not self.wait_for_frame
 
@@ -135,10 +159,14 @@ class PolicyInferenceNodeV2(Node):
         if not self.policy_ckpt_path:
             raise ValueError("Set policy_ckpt_path to the exported policy.pt (faive_lab logs/.../exported/policy.pt)")
         self.policy = torch.jit.load(self.policy_ckpt_path, map_location="cpu").eval()
-        # the input size tells whether the policy was trained with the cube pose (camera feedback) or without
+        # the input size tells whether the policy was trained with the cube pose (camera feedback) or without, and
+        # whether each camera frame carries its age (r26: works without detections) or not (r24, r25)
         self.obs_dim = None
-        candidates = [OBS_DIM + CUBE_POSE_DIM * frames for frames in range(MAX_CUBE_FRAMES + 1)]
-        for obs_dim in candidates:
+        candidates = {OBS_DIM: (0, False)}
+        for frames in range(1, MAX_CUBE_FRAMES + 1):
+            candidates[OBS_DIM + CUBE_POSE_DIM * frames] = (frames, False)
+            candidates[OBS_DIM + CUBE_DETECTION_DIM * frames] = (frames, True)
+        for obs_dim in sorted(candidates):
             try:
                 with torch.no_grad():
                     out = self.policy(torch.zeros(1, obs_dim))
@@ -147,12 +175,17 @@ class PolicyInferenceNodeV2(Node):
             self.obs_dim = obs_dim
             break
         if self.obs_dim is None:
-            raise ValueError(f"The policy accepts none of {candidates} observations")
+            raise ValueError(f"The policy accepts none of {sorted(candidates)} observations")
         assert out.shape[-1] == 17, f"policy outputs {out.shape[-1]} actions, expected 17"
-        self.num_cube_frames = (self.obs_dim - OBS_DIM) // CUBE_POSE_DIM
+        self.num_cube_frames, self.cube_ages = candidates[self.obs_dim]
         self.use_cube_obs = self.num_cube_frames > 0
-        inputs = (f"with the last {self.num_cube_frames} cube pose(s) from the camera" if self.use_cube_obs
-                  else "without the cube pose (only logged)")
+        if self.cube_ages:
+            inputs = (f"with the last {self.num_cube_frames} cube detection(s) and their age (no detection after "
+                      f"{self.cube_max_age_s} s = no camera): runs with and without the camera")
+        elif self.use_cube_obs:
+            inputs = f"with the last {self.num_cube_frames} cube pose(s) from the camera: needs the cube detected"
+        else:
+            inputs = "without the cube pose (only logged)"
         self.get_logger().info(
             f"Loaded policy {self.policy_ckpt_path} ({self.obs_dim} observations -> 17 actions), {inputs}"
         )
@@ -167,7 +200,11 @@ class PolicyInferenceNodeV2(Node):
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
         self.last_object_pos = None
         self.last_object_quat = None
-        self.cube_frames = None  # the last num_cube_frames [pos, quat] given to the policy, oldest first
+        self.last_cube_stamp = None  # image time stamp of the last detection (seconds)
+        self.cube_frames = None  # r24/r25: the last num_cube_frames [pos, quat] given to the policy, oldest first
+        # r26: the last num_cube_frames distinct detections as (image stamp, [pos, quat]), oldest first
+        self.cube_detections = deque(maxlen=max(1, self.num_cube_frames))
+        self.camera_sees_cube = False
 
         # ========== State (USD order) ==========
         self.current_joint_pos = None  # robot order, radians
@@ -251,24 +288,12 @@ class PolicyInferenceNodeV2(Node):
             self.get_logger().info(f"Spin direction flipped: goal angular velocity {self.goal_command[5]:+.2f} rad/s")
 
         # === cube pose (Subtask 2) ===
-        object_pos, object_quat = None, None  # stay None while the cube is not tracked
         hand_T_cube, stamp = self.lookup_transform_from_tf(self.hand_frame, self.cube_frame)
-        if hand_T_cube is not None and now - stamp <= self.cube_pose_timeout_s:
-            # If in your simulation environment you use `mdp.root_pos_w` for the cube position,
-            # you need to represent your cube position in the simulator's world frame.
-            # Read your robot position from the env cfg and set the obs_T_hand accordingly.
-            # Here: robot init_state pos (0.0004, 0.1512, -0.0187), rot (w, x, y, z) (-0.2607, 0.9654, 0, 0) of the
-            # root link right_forearm, and hand_root -> forearm 90 deg about x (orcahand_v2.urdf.xacro): 120.2 deg about x.
-            # If your simulator observes the cube relative to the hand instead, note that the robot's root link is
-            # forearm, not hand_root: use forearm_T_hand_root (90 deg about -x) @ hand_T_cube.
-            obs_T_hand = np.array([
-                [1.0,  0.0,     0.0,     0.0004],
-                [0.0, -0.5034, -0.8641,  0.1512],
-                [0.0,  0.8641, -0.5034, -0.0187],
-                [0.0,  0.0,     0.0,     1.0],
-            ])
-            obs_T_cube = obs_T_hand @ hand_T_cube
-
+        # the camera position is a static transform, so the stamp is that of the detector's image: a new stamp is a
+        # new detection (between detections TF keeps returning the last one)
+        if hand_T_cube is not None and (self.last_cube_stamp is None or stamp > self.last_cube_stamp):
+            self.last_cube_stamp = stamp
+            obs_T_cube = OBS_T_HAND @ hand_T_cube
             object_pos = obs_T_cube[:3, 3].astype(np.float32)
             # Convert quaternion from ROS (x,y,z,w) to policy (w,x,y,z)
             x, y, z, w = Rotation.from_matrix(obs_T_cube[:3, :3]).as_quat()
@@ -277,16 +302,35 @@ class PolicyInferenceNodeV2(Node):
             if self.last_object_quat is not None and np.dot(object_quat, self.last_object_quat) < 0:
                 object_quat = -object_quat
             self.last_object_pos, self.last_object_quat = object_pos, object_quat
-        tracked = object_pos is not None
+            self.cube_detections.append((stamp, np.concatenate([object_pos, object_quat])))
+        tracked = self.last_cube_stamp is not None and now - self.last_cube_stamp <= self.cube_pose_timeout_s
+        object_pos, object_quat = (self.last_object_pos, self.last_object_quat) if tracked else (None, None)
 
-        if self.use_cube_obs and not tracked:
-            # the policy needs a cube pose every step: wait for the first detection, then keep the last detected pose
-            if self.last_object_pos is None:
-                self.get_logger().info("Waiting for the first cube detection...", throttle_duration_sec=2.0)
-                return
-            self.get_logger().warn("Cube not tracked, using its last detected pose", throttle_duration_sec=1.0)
-            object_pos, object_quat = self.last_object_pos, self.last_object_quat
-        if self.use_cube_obs:
+        if self.cube_ages:
+            # r26: the last detections with their age, "no camera" where there is none; never waits for the cube
+            cube_obs = [NO_DETECTION] * (self.num_cube_frames - len(self.cube_detections))
+            for det_stamp, pose in self.cube_detections:
+                age = max(0.0, now - det_stamp)
+                cube_obs.append(np.concatenate([pose, [age / self.cube_max_age_s]]).astype(np.float32)
+                                if age < self.cube_max_age_s else NO_DETECTION)
+            self.cube_frames = cube_obs
+            sees_cube = cube_obs[-1][-1] < 1.0
+            if sees_cube != self.camera_sees_cube:
+                if sees_cube:
+                    self.get_logger().info("Cube detected: the policy uses the camera")
+                else:
+                    self.get_logger().warn(f"No cube detection for {self.cube_max_age_s} s: the policy runs on the "
+                                           "joint state only until the cube is detected again")
+                self.camera_sees_cube = sees_cube
+        elif self.use_cube_obs:
+            # r24/r25: the policy needs a cube pose every step: wait for the first detection, then keep the last
+            # detected pose
+            if not tracked:
+                if self.cube_frames is None:  # nothing given to the policy yet: wait for a current detection
+                    self.get_logger().info("Waiting for the first cube detection...", throttle_duration_sec=2.0)
+                    return
+                self.get_logger().warn("Cube not tracked, using its last detected pose", throttle_duration_sec=1.0)
+                object_pos, object_quat = self.last_object_pos, self.last_object_quat
             # one frame per policy step, as in the simulation; the first pose fills all frames
             pose = np.concatenate([object_pos, object_quat])
             if self.cube_frames is None:
@@ -320,7 +364,8 @@ class PolicyInferenceNodeV2(Node):
         if self.log_period_s > 0 and now - self.last_log_time >= self.log_period_s:
             self.last_log_time = now
             norm = self.normalize(joint_pos_usd)
-            cube = (f"pos {np.round(object_pos, 3)} quat {np.round(object_quat, 2)}" if tracked else "not tracked")
+            cube = (f"pos {np.round(object_pos, 3)} quat {np.round(object_quat, 2)} "
+                    f"age {(now - self.last_cube_stamp) * 1000:.0f} ms" if tracked else "not tracked")
             self.get_logger().info(
                 "joint_pos (normalised): " + " ".join(f"{n}={v:+.2f}" for n, v in zip(self.joint_order_usd, norm))
                 + f" | |action| max {np.abs(action_usd).max():.2f} | cube {cube}"

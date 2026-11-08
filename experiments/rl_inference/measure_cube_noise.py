@@ -3,7 +3,8 @@
 """
 Measure the camera's cube pose as the policy receives it, and print the matching faive_lab camera model: the params of
 ``delayed_object_pose`` (faive_lab ``tasks/orca_inhand/mdp/observations.py``; r25 sets them in
-``orca_v2_repose_reward_cfg.py``, ``CubeFramesPolicyObsCfg.object_pose``).
+``orca_v2_repose_reward_cfg.py``, ``CubeFramesPolicyObsCfg.object_pose``) and of ``camera_object_pose`` (r26,
+``CameraPolicyObsCfg.object_pose``).
 
 It records the cube pose that cube_detection_node publishes on /tf (camera frame → cube, after the detector's own
 filter, as deployed) and samples it every 50 ms, one faive_lab policy step, as policy_inference_cube_spin_v2.py does.
@@ -16,6 +17,8 @@ filter, as deployed) and samples it every 50 ms, one faive_lab policy step, as p
     hold_prob          share of policy steps that get no new pose, in gaps of 1-2 steps
     outage_prob        gaps of 3+ steps (cube hidden) started per policy step
     max_outage_steps   longest such gap
+    detect_prob_range  (r26) must contain the share of policy steps that get a new pose (outside outages); a
+                       detector at f Hz gives about f * 0.05
 
 Two recordings, with the camera and the cube detector running
 (``ros2 launch experiments cube_spin_v2.launch.py model_path:=...``), from the ``experiments`` folder:
@@ -180,6 +183,26 @@ def analyse(data, still, filter_cfg, camera_latency_ms=0.0):
         print(f"Orientation smoothing (slerp alpha {alpha}): +{filter_lag * 1000:.0f} ms while the cube turns")
     print(f"  -> {delay * 1000:.0f} ms = {delay / STEP_S:.1f} steps -> max_delay_steps {result['max_delay_steps']}")
 
+    # --- r26 (camera_object_pose): the policy gets each detection's age, so the time between detections is not a
+    # delay and a slow detector's regular gaps are not outages; only gaps much longer than the usual one are
+    typical_gap = int(np.median(runs)) if len(runs) else 0
+    r26_long = runs[runs > max(SHORT_GAP_MAX, 2 * typical_gap)]
+    steps_in_r26_outage = int(r26_long.sum())
+    r26 = {
+        "detect_prob": float((~held).sum() / max(1, len(ticks) - steps_in_r26_outage)),
+        "max_delay_steps": int(np.ceil((np.percentile(latency, 95) + camera_latency_ms / 1000 + filter_lag) / STEP_S
+                                       - 1e-6)),
+        "outage_prob": len(r26_long) / max(1, len(ticks) - steps_in_r26_outage),
+        "max_outage_steps": int(r26_long.max()) if len(r26_long) else None,
+    }
+    result["r26"] = r26
+    print(f"\nr26: a new pose in {r26['detect_prob']:.1%} of the policy steps outside outages (gaps of more than "
+          f"{max(SHORT_GAP_MAX, 2 * typical_gap)} steps: {len(r26_long)}); delay of a detection when it arrives "
+          f"(95%, + filter lag): {r26['max_delay_steps']} steps")
+    if filter_lag > 0.15:
+        print(f"⚠ The detector's orientation smoothing lags {filter_lag * 1000:.0f} ms at {rate:.1f} Hz: raise its "
+              "orientation_slerp_alpha (or use_kalman_filter:=false) so the policy gets the cube's current rotation")
+
     # --- noise: spread of the pose while nothing moves (each pose once) ---
     if still:
         centre = pos.mean(axis=0)
@@ -218,6 +241,15 @@ def analyse(data, still, filter_cfg, camera_latency_ms=0.0):
             print(f'    "{key}": {f.format(result[key])},')
     if still:
         print("  (a still recording sees few outages: take hold/outage values from a moving recording)")
+    print("\ncamera_object_pose params (r26, CameraPolicyObsCfg.object_pose; pos_std and quat_std as above):")
+    print(f'    "max_delay_steps": {r26["max_delay_steps"]},')
+    print(f'    "detect_prob_range": must contain {r26["detect_prob"]:.2f} (default (0.25, 1.0)),')
+    if r26["max_outage_steps"] is None:
+        print('    # "outage_prob", "max_outage_steps": no outage seen, measure while moving')
+    else:
+        print(f'    "outage_prob": {r26["outage_prob"]:.4f},')
+        print(f'    "max_outage_steps": at least {r26["max_outage_steps"]} (default 40, longer than the 1 s after which '
+              "a detection counts as gone, so the policy also learns to spin without the camera),")
     print("=" * 70)
     return result
 
