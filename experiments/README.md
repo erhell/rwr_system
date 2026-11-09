@@ -40,15 +40,21 @@ The cube detector in `rl_inference/pose_estimation` finds the cube's corners in 
     ```
 3. Check the detection: in RViz, the cube should follow the real cube when you move and turn it. `ros2 run tf2_ros tf2_echo oakd_bottom_view_frame cube` prints the cube position relative to the camera; its distance should match a ruler measurement.
 
+To test only the camera and the detection (no hand, AprilTag, policy or RViz), `cube_view.launch.py` starts the camera, the detector and `rl_inference/cube_view.py`, which shows the camera image in a window with the estimated cube drawn on it (edges and axes; green while the detection is fresh, orange when older than 0.2 s, gone after 1 s) and a status line (detection age, distance to the camera, detections per second, camera frames per second). In the window, `q` quits and `s` saves a PNG.
+```bash
+ros2 launch experiments cube_view.launch.py model_path:=/path/to/pose_estimation/finetuned_models/maskrcnn-finetuned_lightning_new_adamw.ckpt
+```
+RViz shows the camera image only with an **Image** display set to 'Reliability Policy: Best Effort', because the camera publishes it that way.
+
 ### Calibrate the camera
 
-To get the cube pose relative to the hand, the camera's position is measured against an AprilTag (`tag36h11`). `cube_spin_v2.launch.py` does this **at every start**, the way the hand controller calibrates the hand: there is no calibration file, so a moved or bumped camera is never used with an old position.
+To get the cube pose relative to the hand, the camera's position is measured against an AprilTag (`tag36h11`). `cube_spin_v2.launch.py` does this at start by default and saves the result; with `use_saved_camera:=true` it reuses the saved one instead (step 5).
 
 1. Mount the tag rigidly next to the hand where the camera sees it, and measure the size of its black square (without the white border). The defaults are `tag_id:=9 tag_size:=0.075`; pass yours if they differ.
 2. The open hand hides the tag, so at every launch the `apriltag_calibration` node first closes the hand into a fist (orca_core's `power_grasp` pose, wrist unchanged) as soon as the hand controller publishes the joint state (start it before or with the launch, e.g. `enable_hand_controller:=true`). It then averages 30 detections (about 3 s), collects again if they spread more than 1 cm, opens the hand back to where it started, and only then logs `Camera position published: tag_frame → oakd_bottom_view_frame` and publishes it on `/tf_static`. Keep the camera still meanwhile, and keep the cube out of the hand until it has opened.
 3. Until then there is no cube pose relative to the hand, and the policy (`wait_for_frame`) does not command the hand, so it never fights the fist. Every 3 s the node logs why it waits (`AprilTag 9 ... not in view`, hand controller not running).
 4. If the thumb or another finger still hides the tag in the fist, change those joints (degrees) at launch, e.g. `fist_pose:='thumb_abd=10 thumb_cmc=0'`; the node logs the fist it uses at startup. Without a hand controller the tag is measured if it happens to be visible.
-5. The last result is written to `~/camera_extrinsics.npy` for reference only; the launch does not read it.
+5. The result is saved to `~/camera_extrinsics.npy`. To skip the measurement (and the fist) on later launches, add `use_saved_camera:=true`: the launch then publishes the saved position right away and logs when it was measured. Launch without it to measure again whenever the camera or the tag has moved.
 
 To look at the detection, run the script on its own with the camera started, from the `experiments` folder: `python3 rl_inference/apriltag_calibration.py --tag-id 9 --tag-size 0.075 --output /tmp/cam_T_tag.npy --visualize`.
 

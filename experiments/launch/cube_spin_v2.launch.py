@@ -6,7 +6,8 @@ This launch file combines everything needed for the complete system:
 1. Robot hand visualization (URDF + state publisher), showing the pose measured by the motors
 2. Hand controller node
 3. OakD camera
-4. Camera position from the AprilTag, measured anew at every start (tag→camera), and the static TF tag→hand_root
+4. Camera position from the AprilTag (tag→camera): measured at start and saved to ~/camera_extrinsics.npy, or that saved
+   one reused with use_saved_camera:=true; and the static TF tag→hand_root
 5. Cube detection node
 6. Policy inference node (policy_inference_cube_spin_v2.py)
 7. RViz2 visualization
@@ -36,7 +37,14 @@ def generate_launch_description():
     """Generate launch description with all arguments"""
     
     # ===== Camera Calibration (AprilTag) and Policy Arguments =====
-    # the camera position is measured from this tag at every start, there is no calibration file to pass
+    # the camera position is measured from this tag at start (saved to ~/camera_extrinsics.npy), or with
+    # use_saved_camera:=true the last saved one is reused
+    use_saved_camera_arg = DeclareLaunchArgument(
+        'use_saved_camera',
+        default_value='false',
+        description='true: reuse the camera position saved by the last measurement (~/camera_extrinsics.npy) instead of '
+                    'measuring it; measure again (false) after the camera or the tag moved'
+    )
     tag_id_arg = DeclareLaunchArgument('tag_id', default_value='9', description='ID of the AprilTag next to the hand')
     tag_size_arg = DeclareLaunchArgument(
         'tag_size',
@@ -115,6 +123,7 @@ def generate_launch_description():
         tag_size_arg,
         tag_family_arg,
         fist_pose_arg,
+        use_saved_camera_arg,
         policy_arg,
         dry_run_arg,
         goal_ang_vel_arg,
@@ -141,6 +150,7 @@ def launch_setup(context, *args, **kwargs):
     tag_size = float(LaunchConfiguration('tag_size').perform(context))
     tag_family = LaunchConfiguration('tag_family').perform(context)
     fist_pose = LaunchConfiguration('fist_pose').perform(context).split()
+    use_saved_camera = LaunchConfiguration('use_saved_camera').perform(context).lower() == 'true'
     policy_file = LaunchConfiguration('policy').perform(context)
     dry_run = LaunchConfiguration('dry_run').perform(context).lower() == 'true'
     goal_ang_vel = float(LaunchConfiguration('goal_ang_vel').perform(context))
@@ -235,29 +245,52 @@ def launch_setup(context, *args, **kwargs):
         ]
     )
     
-    # 4b. Tag → Camera: measured from the AprilTag at every start (like the hand calibration), never loaded from a file,
-    # so a camera that was moved or bumped is never used with an old position. The node averages 30 detections
-    # (about 3 s, collected again if they spread more than 1 cm), publishes tag_frame → <camera_name>_frame on
-    # /tf_static and keeps running. Until then hand_root → cube does not exist and a policy using the cube waits.
+    # 4b. Tag → Camera: by default measured from the AprilTag at start (like the hand calibration). The node averages
+    # 30 detections (about 3 s, collected again if they spread more than 1 cm), saves cam_T_tag to
+    # ~/camera_extrinsics.npy, publishes tag_frame → <camera_name>_frame on /tf_static and keeps running. Until then
+    # hand_root → cube does not exist and a policy using the cube waits.
     # The open hand hides the tag: once the hand controller runs, the node closes the hand (orca_core's power_grasp,
     # wrist unchanged), measures, opens it back to where it started and only then publishes; the policy waits for that
     # (wait_for_frame below). Without a hand controller it measures the tag if it is visible.
-    # The last result is also written to ~/camera_extrinsics.npy, only for reference.
-    camera_calibration_node = Node(
-        package='experiments',
-        executable='apriltag_calibration.py',
-        name='apriltag_calibration',
-        output='screen',
-        arguments=[
-            '--camera-topic', f'/{camera_name}/color',
-            '--camera-name', camera_name,
-            '--tag-family', tag_family,
-            '--tag-id', str(tag_id),
-            '--tag-size', str(tag_size),
-            '--output', os.path.expanduser('~/camera_extrinsics.npy'),
-            '--publish-tf',
-        ] + (['--fist-pose'] + fist_pose if fist_pose else []),
-    )
+    # use_saved_camera:=true skips the measurement and publishes the saved ~/camera_extrinsics.npy instead: only valid
+    # while the camera and the tag have not moved since it was measured.
+    camera_extrinsics_path = os.path.expanduser('~/camera_extrinsics.npy')
+    if use_saved_camera:
+        if not os.path.exists(camera_extrinsics_path):
+            raise RuntimeError(f"use_saved_camera:=true, but {camera_extrinsics_path} does not exist: launch once "
+                               "without it to measure the camera position")
+        from datetime import datetime
+        tag_T_cam = np.linalg.inv(np.load(camera_extrinsics_path))
+        tag_T_cam_quat = R.from_matrix(tag_T_cam[:3, :3]).as_quat()  # x, y, z, w
+        saved_at = datetime.fromtimestamp(os.path.getmtime(camera_extrinsics_path)).strftime('%Y-%m-%d %H:%M')
+        print(f"Camera position: reusing {camera_extrinsics_path}, measured {saved_at} "
+              "(launch without use_saved_camera:=true to measure it again if the camera or the tag moved)")
+        camera_calibration_node = Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='static_tf_tag_to_camera',
+            arguments=[
+                str(tag_T_cam[0, 3]), str(tag_T_cam[1, 3]), str(tag_T_cam[2, 3]),
+                str(tag_T_cam_quat[0]), str(tag_T_cam_quat[1]), str(tag_T_cam_quat[2]), str(tag_T_cam_quat[3]),
+                'tag_frame', f'{camera_name}_frame'
+            ]
+        )
+    else:
+        camera_calibration_node = Node(
+            package='experiments',
+            executable='apriltag_calibration.py',
+            name='apriltag_calibration',
+            output='screen',
+            arguments=[
+                '--camera-topic', f'/{camera_name}/color',
+                '--camera-name', camera_name,
+                '--tag-family', tag_family,
+                '--tag-id', str(tag_id),
+                '--tag-size', str(tag_size),
+                '--output', camera_extrinsics_path,
+                '--publish-tf',
+            ] + (['--fist-pose'] + fist_pose if fist_pose else []),
+        )
 
     # ===== 5. Cube Detection Node =====
     cube_detection_node = None
