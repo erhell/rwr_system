@@ -28,6 +28,21 @@ Useful parameters (add each as `-p name:=value`):
 
 The joint limits, observation order and scales in the script must match the faive_lab task (`orca_v2_repose_env_cfg.py`).
 
+### Look at a run in Foxglove
+
+Foxglove opens MCAP bags (File → Open local file), not CSV files. Two ways to get one:
+
+- **Record a bag during the run.** In another terminal, start this before the policy and stop it with Ctrl+C after it:
+    ```bash
+    ros2 bag record -s mcap -a -o logs/policy_runs/bag_$(date +%Y%m%d_%H%M%S)
+    ```
+    It records all topics: the commanded and measured joint states, TF, and the policy's log lines (`/rosout`, for Foxglove's Log panel).
+- **Convert a CSV log** (`csv_log_path`):
+    ```bash
+    python rl_inference/policy_csv_to_mcap.py ../logs/policy_runs/<run>.csv
+    ```
+    It writes `<run>_csv/<run>_csv_0.mcap` with `/policy/joint_pos` (measured, rad), `/policy/joint_cmd` (commanded, rad), `/policy/last_action`, `/policy/goal_ang_vel` and `/policy/cube_pose` (only while the cube was tracked). The joints are in the policy's order (0 wrist, 1-4 abd index/middle/pinky/ring, 5 thumb_cmc, 6-9 mcp index/middle/pinky/ring, 10 thumb_abd, 11-14 pip index/middle/pinky/ring, 15 thumb_mcp, 16 thumb_dip). In a Plot panel, `/policy/joint_cmd.position[6]` and `/policy/joint_pos.position[6]` show how the index MCP follows its command.
+
 ### Detect the cube
 
 The cube detector in `rl_inference/pose_estimation` finds the cube's corners in the OAK-D image and computes the cube pose from them (PnP).
