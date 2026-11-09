@@ -36,23 +36,31 @@ Faive/ROS environment, see the installation notes in
 
 ## Collect data
 
-For whole-hand SysID, collect eight representative joints: the wrist,
-four thumb joints, and three index-finger joints. faive_lab fits these eight
-and reuses each index-finger joint's parameters for the corresponding
-middle, ring, and pinky joints (nine more joints). This reduces recording
-and fitting time; it assumes similar dynamics, not identical measured behavior.
+For whole-hand SysID, record all 17 joints (about 8 minutes):
 
 ```bash
 python experiments/orca/chirp.py \
   --config /path/to/your/config.yaml \
   --joints wrist thumb_cmc thumb_abd thumb_mcp thumb_dip index_abd index_mcp index_pip \
+           middle_abd middle_mcp middle_pip ring_abd ring_mcp ring_pip pinky_abd pinky_mcp pinky_pip \
   --ctrl-freq 20 --duration 20 --f0 0.1 --f1 5 --amplitude-deg 10 --execute
 ```
 
 Each joint runs a 20-second logarithmic sweep from 0.1 to 5 Hz at 20 Hz
-control, with ±10° about its ROM midpoint. Other joints hold their neutral
-pose. Use `--center-deg` to change the center; the trajectory must fit within
-the joint limits. Ctrl+C stops the experiment.
+control, with ±10° about its ROM midpoint. Use `--center-deg` to change the
+center; the trajectory must fit within the joint limits. Ctrl+C stops the
+experiment.
+
+The other joints hold the neutral pose, except that the other fingers are
+spread away from the swept one so it has room to move (`--spread-deg`, default
+20; a positive abduction turns a finger towards the thumb side): fingers on its
+thumb side go to +20°, fingers on its pinky side to −20°, and its own abduction
+to 0° while its MCP or PIP is swept; for a thumb joint all four fingers go to
+−20°. They move there first, and only then the swept joint to the start of the
+sweep. `metadata.json` saves this pose for every sweep (`hold_poses_deg`), and
+faive_lab's fit holds the simulated hand the same way. `--spread-deg 0` holds
+the plain neutral pose, as recordings before 2026-11-08 evening did (with
+neutral abductions that push the fingers together).
 
 ## Output
 

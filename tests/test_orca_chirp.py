@@ -133,6 +133,9 @@ def test_preview_never_imports_hardware_or_creates_output(tmp_path, monkeypatch,
     ["--center-deg", "nan"],
     ["--center-deg", "100"],
     ["--settle-time", "-1"],
+    ["--spread-deg", "-5"],
+    ["--spread-deg", "nan"],
+    ["--spread-deg", "40"],  # middle/ring abduction ROM is [-27, 27]
 ])
 def test_invalid_plan_is_rejected_without_hardware(options, monkeypatch):
     monkeypatch.setitem(sys.modules, "orca_core", None)
@@ -142,6 +145,9 @@ def test_invalid_plan_is_rejected_without_hardware(options, monkeypatch):
 
 
 def test_real_samples_keep_csv_schema_and_other_joints_neutral(experiment):
+    args = chirp.make_parser().parse_args(["--duration", "0.2", "--settle-time", "0", "--spread-deg", "0",
+                                           "--output-dir", str(experiment[0].output_dir)])
+    experiment = (args, chirp.make_plan(args, experiment[1]["config"]), *experiment[2:])
     args, plan, clock, hand = experiment
     run_dir = run(experiment)
     csv_path, = run_dir.glob("chirp_index_mcp_*.csv")
@@ -166,6 +172,53 @@ def test_real_samples_keep_csv_schema_and_other_joints_neutral(experiment):
     assert hand.events == ["connect", "init", "disable", "disconnect"]
     assert clock.now == pytest.approx(.2)
     assert json.loads((run_dir / "metadata.json").read_text())["status"] == "complete"
+
+
+@pytest.mark.parametrize("joint, expected", [
+    # positive abduction = towards the thumb side: fingers on the swept finger's thumb side +20, pinky side -20
+    ("index_mcp", dict(index_abd=0, middle_abd=-20, ring_abd=-20, pinky_abd=-20)),
+    ("middle_abd", dict(index_abd=20, ring_abd=-20, pinky_abd=-20)),
+    ("middle_pip", dict(index_abd=20, middle_abd=0, ring_abd=-20, pinky_abd=-20)),
+    ("ring_mcp", dict(index_abd=20, middle_abd=20, ring_abd=0, pinky_abd=-20)),
+    ("pinky_abd", dict(index_abd=20, middle_abd=20, ring_abd=20)),
+    ("thumb_mcp", dict(index_abd=-20, middle_abd=-20, ring_abd=-20, pinky_abd=-20)),
+    ("wrist", dict()),
+])
+def test_hold_pose_spreads_the_other_fingers_away(joint, expected):
+    config = yaml.safe_load(chirp.DEFAULT_CONFIG.read_text())
+    neutral = config["neutral_position"]
+    pose = chirp.hold_pose(joint, neutral, 20.0)
+    for other, value in pose.items():
+        if other != joint:
+            assert value == expected.get(other, neutral[other]), other
+    assert chirp.hold_pose(joint, neutral, 0.0) == neutral
+
+
+def test_other_fingers_spread_before_the_swept_joint_moves(experiment):
+    args = chirp.make_parser().parse_args(["--joints", "middle_mcp", "ring_abd", "--duration", "0.2",
+                                           "--settle-time", "0", "--output-dir", str(experiment[0].output_dir)])
+    experiment = (args, chirp.make_plan(args, experiment[1]["config"]), *experiment[2:])
+    args, plan, clock, hand = experiment
+    run_dir = run(experiment)
+    neutral = plan["config"]["neutral_position"]
+    hold = plan["hold_poses_deg"]
+    # middle_mcp: 1. the others to the hold pose, middle_mcp still at neutral; 2. middle_mcp to the chirp start
+    first, second = hand.commands[0], hand.commands[1]
+    assert first["middle_mcp"] == neutral["middle_mcp"]
+    assert {j: v for j, v in first.items() if j != "middle_mcp"} == \
+        {j: v for j, v in hold["middle_mcp"].items() if j != "middle_mcp"}
+    assert second["middle_mcp"] == pytest.approx(plan["centers_deg"]["middle_mcp"] + args.amplitude_deg)
+    sweep_commands = hand.commands[1:2 + 4]  # chirp start + 4 samples
+    for command in sweep_commands:
+        assert command["ring_abd"] == -20 and command["index_abd"] == 20 and command["middle_abd"] == 0
+    # ring_abd: middle_mcp goes back to its hold value while ring_abd stays where it was, then ring_abd moves
+    first_ring = hand.commands[2 + 4]
+    assert first_ring["ring_abd"] == hold["middle_mcp"]["ring_abd"] == -20
+    assert first_ring["middle_mcp"] == hold["ring_abd"]["middle_mcp"] == neutral["middle_mcp"]
+    assert first_ring["middle_abd"] == 20 and first_ring["pinky_abd"] == -20
+    metadata = json.loads((run_dir / "metadata.json").read_text())
+    assert metadata["spread_deg"] == 20.0
+    assert metadata["hold_poses_deg"]["ring_abd"]["middle_abd"] == 20.0
 
 
 def test_uncalibrated_hand_does_not_connect_or_auto_calibrate(experiment):

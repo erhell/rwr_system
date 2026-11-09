@@ -2,6 +2,13 @@
 
 By default, only validate and print the experiment plan. Pass --execute to
 connect to a previously calibrated hand and collect real measurements.
+
+While one joint is swept, the others hold the hand's neutral pose, except that the other fingers are spread away from
+the swept one (--spread-deg, default 20; 0 = plain neutral pose): fingers on its thumb side to +spread, fingers on its
+pinky side to -spread, and its own abduction to 0 while its MCP or PIP is swept. For a thumb joint all four fingers
+go to -spread (away from the thumb). The other joints move to this pose first, and only then the swept joint to the
+start of the chirp, so it always has room to move. The pose of every sweep is saved in metadata.json
+(hold_poses_deg), and faive_lab's chirp_characterization.py holds the simulated hand the same way.
 """
 
 import argparse
@@ -24,6 +31,28 @@ DEFAULT_CONFIG = (
     / "src/hand_control/orca/configs/orcahand_v2/right/config.yaml"
 )
 CSV_FIELDS = ["timestamp", "commanded_position", "measured_position"]
+# fingers from the thumb side to the pinky side. On the ORCA v2 a positive *_abd turns a finger towards the thumb side
+# (orcahand_v2.urdf.xacro; the ring_abd re-recording of 2026-11-08 moved the neighbours away the same way)
+FINGERS = ("index", "middle", "ring", "pinky")
+
+
+def hold_pose(joint, neutral, spread_deg):
+    """Pose of all joints (degrees) while `joint` is swept: neutral, with the other fingers spread away from it."""
+    pose = dict(neutral)
+    if spread_deg == 0:
+        return pose
+    finger, _, part = joint.partition("_")
+    if finger in FINGERS:
+        k = FINGERS.index(finger)
+        for i, other in enumerate(FINGERS):
+            if other != finger:
+                pose[f"{other}_abd"] = float(spread_deg if i < k else -spread_deg)
+        if part != "abd":
+            pose[f"{finger}_abd"] = 0.0  # straight, so its flexion is not pressed against a neighbour
+    elif finger == "thumb":
+        for other in FINGERS:
+            pose[f"{other}_abd"] = float(-spread_deg)
+    return pose
 
 
 def make_parser():
@@ -40,6 +69,8 @@ def make_parser():
     parser.add_argument("--center-deg", type=float, default=None,
                         help="Sweep center; by default use each joint's ROM midpoint.")
     parser.add_argument("--settle-time", type=float, default=1.0)
+    parser.add_argument("--spread-deg", type=float, default=20.0,
+                        help="Abduction of the other fingers away from the swept one (0: neutral pose).")
     parser.add_argument("--output-dir", type=Path, default=Path("logs/chirp_v2"))
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--execute", action="store_true", help="Connect and move real hardware.")
@@ -55,6 +86,8 @@ def make_plan(args, config):
             raise ValueError(f"{name} must be finite and positive")
     if not math.isfinite(args.settle_time) or args.settle_time < 0:
         raise ValueError("settle_time must be finite and non-negative")
+    if not math.isfinite(args.spread_deg) or args.spread_deg < 0:
+        raise ValueError("spread_deg must be finite and non-negative")
     if not args.f0 < args.f1 < args.ctrl_freq / 2:
         raise ValueError("Require 0 < f0 < f1 < ctrl_freq / 2 (Nyquist frequency)")
     if args.duration * args.ctrl_freq < 2:
@@ -87,6 +120,15 @@ def make_plan(args, config):
                 or center + args.amplitude_deg > upper):
             raise ValueError(f"{joint}: center +/- amplitude exceeds ROM [{lower}, {upper}]")
         centers[joint] = center
+    hold_poses = {}
+    for joint in args.joints:
+        pose = hold_pose(joint, neutral, args.spread_deg)
+        for other, value in pose.items():
+            lower, upper = roms[other]
+            if other != joint and not lower <= value <= upper:
+                raise ValueError(f"{joint}: holding {other} at {value} deg exceeds its ROM [{lower}, {upper}]; "
+                                 "use a smaller --spread-deg")
+        hold_poses[joint] = pose
     return {
         "config_path": str(args.config.resolve()),
         "config": config,
@@ -99,6 +141,8 @@ def make_plan(args, config):
         "amplitude_deg": args.amplitude_deg,
         "settle_time_s": args.settle_time,
         "sample_count_per_joint": len(sample_times(args)),
+        "spread_deg": args.spread_deg,
+        "hold_poses_deg": hold_poses,
     }
 
 
@@ -106,17 +150,24 @@ def sample_times(args):
     return np.arange(0, args.duration, 1.0 / args.ctrl_freq)
 
 
-def collect_joint(hand, args, plan, joint, path, *, clock=time.monotonic, sleep=time.sleep):
-    """Write each real sample immediately, preserving partial data on failure."""
+def collect_joint(hand, args, plan, joint, path, *, current=None, clock=time.monotonic, sleep=time.sleep):
+    """Write each real sample immediately, preserving partial data on failure.
+
+    current is the last command sent (default: the neutral pose); returns the last command of this sweep.
+    """
     t = sample_times(args)
     trajectory = plan["centers_deg"][joint] + args.amplitude_deg * signal.chirp(
         t, f0=args.f0, t1=args.duration, f1=args.f1, method="logarithmic"
     )
-    command = dict(plan["config"]["neutral_position"])
+    # Ramp for roughly one second rather than jumping, in two steps: first the other joints to the hold pose (the
+    # neighbouring fingers spread away) with the swept joint where it is, then the swept joint to the first chirp sample.
+    ramp = dict(num_steps=max(2, math.ceil(args.ctrl_freq)), step_size=1.0 / args.ctrl_freq)
+    command = dict(plan["hold_poses_deg"][joint])
+    command[joint] = (current or plan["config"]["neutral_position"])[joint]
+    hand.set_joint_positions(command, **ramp)
+    sleep(args.settle_time)
     command[joint] = float(trajectory[0])
-    # Ramp for roughly one second rather than jumping to the first chirp sample.
-    hand.set_joint_positions(command, num_steps=max(2, math.ceil(args.ctrl_freq)),
-                             step_size=1.0 / args.ctrl_freq)
+    hand.set_joint_positions(command, **ramp)
     sleep(args.settle_time)
 
     with path.open("x", newline="") as stream:
@@ -140,6 +191,7 @@ def collect_joint(hand, args, plan, joint, path, *, clock=time.monotonic, sleep=
             stream.flush()
         # Hold the last sample for a full period before changing pose or disabling torque.
         sleep(max(0.0, start + len(t) / args.ctrl_freq - clock()))
+    return command
 
 
 def run_hardware(args, plan, *, factory=None, clock=time.monotonic, sleep=time.sleep):
@@ -170,13 +222,14 @@ def run_hardware(args, plan, *, factory=None, clock=time.monotonic, sleep=time.s
                         run_id=stamp, started_at_utc=started_at.isoformat())
         (run_dir / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
         hand.init_joints(force_calibrate=False, move_to_neutral=True)
+        current = None
         for joint in args.joints:
             filename = (f"chirp_{joint}_{stamp}_ctrl{args.ctrl_freq:g}Hz_"
                         f"{args.duration}s_{args.f0}-{args.f1}Hz_{args.amplitude_deg:g}deg.csv")
             path = run_dir / filename
             metadata["csv_files"].append(filename)
             print(f"Collecting {joint}: {path}")
-            collect_joint(hand, args, plan, joint, path, clock=clock, sleep=sleep)
+            current = collect_joint(hand, args, plan, joint, path, current=current, clock=clock, sleep=sleep)
         metadata["status"] = "complete"
     except BaseException as exc:
         metadata.update(status="interrupted" if isinstance(exc, KeyboardInterrupt) else "failed",
