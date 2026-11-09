@@ -1,0 +1,62 @@
+rosbag2_bagfile_information:
+  version: 9
+  storage_identifier: mcap
+  duration:
+    nanoseconds: 26650016000
+  starting_time:
+    nanoseconds_since_epoch: 1794215197819310592
+  message_count: 2136
+  topics_with_message_count:
+    - topic_metadata:
+        name: /policy/goal_ang_vel
+        type: std_msgs/msg/Float64
+        serialization_format: cdr
+        offered_qos_profiles:
+          []
+        type_description_hash: ""
+      message_count: 534
+    - topic_metadata:
+        name: /policy/last_action
+        type: sensor_msgs/msg/JointState
+        serialization_format: cdr
+        offered_qos_profiles:
+          []
+        type_description_hash: ""
+      message_count: 534
+    - topic_metadata:
+        name: /policy/cube_pose
+        type: geometry_msgs/msg/PoseStamped
+        serialization_format: cdr
+        offered_qos_profiles:
+          []
+        type_description_hash: ""
+      message_count: 0
+    - topic_metadata:
+        name: /policy/joint_cmd
+        type: sensor_msgs/msg/JointState
+        serialization_format: cdr
+        offered_qos_profiles:
+          []
+        type_description_hash: ""
+      message_count: 534
+    - topic_metadata:
+        name: /policy/joint_pos
+        type: sensor_msgs/msg/JointState
+        serialization_format: cdr
+        offered_qos_profiles:
+          []
+        type_description_hash: ""
+      message_count: 534
+  compression_format: ""
+  compression_mode: ""
+  relative_file_paths:
+    - r21_sysid_16k_20261109_100636_csv_0.mcap
+  files:
+    - path: r21_sysid_16k_20261109_100636_csv_0.mcap
+      starting_time:
+        nanoseconds_since_epoch: 1794215197819310592
+      duration:
+        nanoseconds: 26650016000
+      message_count: 4272
+  custom_data: ~
+  ros_distro: jazzy

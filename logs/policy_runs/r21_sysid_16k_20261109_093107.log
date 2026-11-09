@@ -1,0 +1,19 @@
+/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/torch/jit/_serialization.py:170: FutureWarning: `torch.jit.load` is not supported in Python 3.14+ and may break. Please switch to `torch.export`.
+  warnings.warn(
+Traceback (most recent call last):
+  File "/home/erhell/ros_ws/install/experiments/lib/experiments/policy_inference_cube_spin_v2.py", line 394, in <module>
+    main()
+    ~~~~^^
+  File "/home/erhell/ros_ws/install/experiments/lib/experiments/policy_inference_cube_spin_v2.py", line 382, in main
+    node = PolicyInferenceNodeV2()
+  File "/home/erhell/ros_ws/install/experiments/lib/experiments/policy_inference_cube_spin_v2.py", line 161, in __init__
+    self.policy = torch.jit.load(self.policy_ckpt_path, map_location="cpu").eval()
+                  ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/torch/jit/_serialization.py", line 192, in load
+    cpp_module = torch._C.import_ir_module(
+        cu,
+    ...<4 lines>...
+        _restore_shapes,
+    )  # type: ignore[call-arg]
+RuntimeError: PytorchStreamReader failed locating file constants.pkl: file not found. This is an internal miniz error. If you are seeing this error, there is a high likelihood that your checkpoint file is corrupted. This can happen if the checkpoint was not saved properly, was transferred incorrectly, or the file was modified after saving.
+[ros2run]: Process exited with failure 1
