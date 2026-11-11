@@ -40,6 +40,16 @@ install(PROGRAMS
 )
 
 
+# Python helpers used by the installed inference and detector executables.
+install(FILES
+  rl_inference/camera_feedback.py
+  rl_inference/camera_utils.py
+  rl_inference/rotation_utils.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+install(DIRECTORY rl_inference/pose_estimation DESTINATION lib/${PROJECT_NAME}
+  PATTERN "__pycache__" EXCLUDE PATTERN "*.ckpt" EXCLUDE PATTERN "*.pth.tar" EXCLUDE)
+
 # install the launch file
 install(DIRECTORY
   launch

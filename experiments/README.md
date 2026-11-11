@@ -21,6 +21,7 @@ Useful parameters (add each as `-p name:=value`):
 |---|---|---|
 | `dry_run` | `false` | `true`: compute and log actions, but do not command the hand |
 | `goal_ang_vel` | `1.0` | commanded spin speed about z in rad/s; the sign sets the direction |
+| `action_alpha` | `-1` | moving average of the joint commands; `-1` takes it from the `deploy_meta.json` next to the policy (r29-r32: 0.3, earlier: 0.2; 0.2 without one). Also a `cube_spin_v2.launch.py` argument |
 | `goal_flip_period_s` | `0.0` | if > 0, flip the spin direction every this many seconds |
 | `csv_log_path` | `""` | if set, log observations, joint commands and the cube pose to this CSV file |
 | `policy_hz` | `20.0` | policy rate; must match the training task |
@@ -42,6 +43,14 @@ Foxglove opens MCAP bags (File → Open local file), not CSV files. Two ways to 
     python rl_inference/policy_csv_to_mcap.py ../logs/policy_runs/<run>.csv
     ```
     It writes `<run>_csv/<run>_csv_0.mcap` with `/policy/joint_pos` (measured, rad), `/policy/joint_cmd` (commanded, rad), `/policy/last_action`, `/policy/goal_ang_vel` and `/policy/cube_pose` (only while the cube was tracked). The joints are in the policy's order (0 wrist, 1-4 abd index/middle/pinky/ring, 5 thumb_cmc, 6-9 mcp index/middle/pinky/ring, 10 thumb_abd, 11-14 pip index/middle/pinky/ring, 15 thumb_mcp, 16 thumb_dip). In a Plot panel, `/policy/joint_cmd.position[6]` and `/policy/joint_pos.position[6]` show how the index MCP follows its command.
+
+### Measure the hand's lag
+
+```bash
+python rl_inference/joint_lag_real.py /path/to/<run>/exported/deploy_meta.json ../logs/policy_runs/<policy>_*.csv
+```
+
+prints per joint after how many policy steps a command change shows up in the measured joint velocity, and the policy loop timing. On the r21_sysid_16k runs (2026-11-09) it is 3 steps (150 ms) for most joints, while the sim (rwr_faive_lab's `scripts/rsl_rl/joint_lag.py`) gave 2 steps; rwr_faive_lab's r30 is trained with that extra latency.
 
 ### Detect the cube
 
@@ -65,13 +74,13 @@ RViz shows the camera image only with an **Image** display set to 'Reliability P
 
 To get the cube pose relative to the hand, the camera's position is measured against an AprilTag (`tag36h11`). `cube_spin_v2.launch.py` does this at start by default and saves the result; with `use_saved_camera:=true` it reuses the saved one instead (step 5).
 
-1. Mount the tag rigidly next to the hand where the camera sees it, and measure the size of its black square (without the white border). The defaults are `tag_id:=9 tag_size:=0.075`; pass yours if they differ.
+1. Mount the tag rigidly next to the hand where the camera sees it, and measure the size of its black square (without the white border). The defaults are the task description's tag, `tag_id:=25 tag_size:=0.08` (36h11, ID 25, 8 cm; until 2026-11-11 they were 9 and 0.075 by mistake); pass yours if they differ. A wrong size scales the measured camera distance and with it every cube position.
 2. The open hand hides the tag, so at every launch the `apriltag_calibration` node first closes the hand into a fist (orca_core's `power_grasp` pose, wrist unchanged) as soon as the hand controller publishes the joint state (start it before or with the launch, e.g. `enable_hand_controller:=true`). It then averages 30 detections (about 3 s), collects again if they spread more than 1 cm, opens the hand back to where it started, and only then logs `Camera position published: tag_frame → oakd_bottom_view_frame` and publishes it on `/tf_static`. Keep the camera still meanwhile, and keep the cube out of the hand until it has opened.
-3. Until then there is no cube pose relative to the hand, and the policy (`wait_for_frame`) does not command the hand, so it never fights the fist. Every 3 s the node logs why it waits (`AprilTag 9 ... not in view`, hand controller not running).
+3. Until then there is no cube pose relative to the hand, and the policy (`wait_for_frame`) does not command the hand, so it never fights the fist. Every 3 s the node logs why it waits (`AprilTag 25 ... not in view`, hand controller not running).
 4. If the thumb or another finger still hides the tag in the fist, change those joints (degrees) at launch, e.g. `fist_pose:='thumb_abd=10 thumb_cmc=0'`; the node logs the fist it uses at startup. Without a hand controller the tag is measured if it happens to be visible.
 5. The result is saved to `~/camera_extrinsics.npy`. To skip the measurement (and the fist) on later launches, add `use_saved_camera:=true`: the launch then publishes the saved position right away and logs when it was measured. Launch without it to measure again whenever the camera or the tag has moved.
 
-To look at the detection, run the script on its own with the camera started, from the `experiments` folder: `python3 rl_inference/apriltag_calibration.py --tag-id 9 --tag-size 0.075 --output /tmp/cam_T_tag.npy --visualize`.
+To look at the detection, run the script on its own with the camera started, from the `experiments` folder: `python3 rl_inference/apriltag_calibration.py --tag-id 25 --tag-size 0.08 --output /tmp/cam_T_tag.npy --visualize`.
 
 ### Set the hand's position
 

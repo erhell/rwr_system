@@ -17,7 +17,7 @@ policy waits. After that an r26 policy runs with or without cube detections; an 
 
 Command line usage:
     ros2 launch experiments cube_spin_v2.launch.py \
-        tag_id:=9 tag_size:=0.075 \
+        tag_id:=25 tag_size:=0.08 \
         model_path:=/path/to/pose_estimation/finetuned_models/maskrcnn-finetuned_lightning_new_adamw.ckpt \
         policy:=/path/to/exported/policy.pt \
         enable_hand_controller:=true
@@ -45,10 +45,11 @@ def generate_launch_description():
         description='true: reuse the camera position saved by the last measurement (~/camera_extrinsics.npy) instead of '
                     'measuring it; measure again (false) after the camera or the tag moved'
     )
-    tag_id_arg = DeclareLaunchArgument('tag_id', default_value='9', description='ID of the AprilTag next to the hand')
+    tag_id_arg = DeclareLaunchArgument('tag_id', default_value='25',
+                                       description='ID of the AprilTag next to the hand (task description: 36h11, ID 25, 8 cm)')
     tag_size_arg = DeclareLaunchArgument(
         'tag_size',
-        default_value='0.075',
+        default_value='0.08',
         description="Side of the tag's black square in metres (without the white border)"
     )
     tag_family_arg = DeclareLaunchArgument('tag_family', default_value='tag36h11', description='AprilTag family')
@@ -64,10 +65,21 @@ def generate_launch_description():
         description='Path to the policy exported by faive_lab (exported/policy.pt)'
     )
 
+    enable_camera_arg = DeclareLaunchArgument(
+        'enable_camera', default_value='true',
+        description='false: start the policy without camera, detector, or moving calibration; use an age-aware policy'
+    )
+
     dry_run_arg = DeclareLaunchArgument(
         'dry_run',
         default_value='false',
         description='true: the policy computes and logs actions but does not command the hand'
+    )
+
+    action_alpha_arg = DeclareLaunchArgument(
+        'action_alpha',
+        default_value='-1.0',
+        description="moving average of the joint commands; -1: the policy's deploy_meta.json (r29-r32: 0.3, before: 0.2)"
     )
 
     goal_ang_vel_arg = DeclareLaunchArgument(
@@ -126,7 +138,9 @@ def generate_launch_description():
         use_saved_camera_arg,
         policy_arg,
         dry_run_arg,
+        enable_camera_arg,
         goal_ang_vel_arg,
+        action_alpha_arg,
         model_path_arg,
         hand_to_tag_x_arg,
         hand_to_tag_y_arg,
@@ -152,8 +166,10 @@ def launch_setup(context, *args, **kwargs):
     fist_pose = LaunchConfiguration('fist_pose').perform(context).split()
     use_saved_camera = LaunchConfiguration('use_saved_camera').perform(context).lower() == 'true'
     policy_file = LaunchConfiguration('policy').perform(context)
+    enable_camera = LaunchConfiguration('enable_camera').perform(context).lower() == 'true'
     dry_run = LaunchConfiguration('dry_run').perform(context).lower() == 'true'
     goal_ang_vel = float(LaunchConfiguration('goal_ang_vel').perform(context))
+    action_alpha = float(LaunchConfiguration('action_alpha').perform(context))
     model_path = LaunchConfiguration('model_path').perform(context)
     hand_to_tag_x = float(LaunchConfiguration('hand_to_tag_x').perform(context))
     hand_to_tag_y = float(LaunchConfiguration('hand_to_tag_y').perform(context))
@@ -255,7 +271,9 @@ def launch_setup(context, *args, **kwargs):
     # use_saved_camera:=true skips the measurement and publishes the saved ~/camera_extrinsics.npy instead: only valid
     # while the camera and the tag have not moved since it was measured.
     camera_extrinsics_path = os.path.expanduser('~/camera_extrinsics.npy')
-    if use_saved_camera:
+    if not enable_camera:
+        camera_calibration_node = None
+    elif use_saved_camera:
         if not os.path.exists(camera_extrinsics_path):
             raise RuntimeError(f"use_saved_camera:=true, but {camera_extrinsics_path} does not exist: launch once "
                                "without it to measure the camera position")
@@ -294,7 +312,7 @@ def launch_setup(context, *args, **kwargs):
 
     # ===== 5. Cube Detection Node =====
     cube_detection_node = None
-    if model_path:
+    if enable_camera and model_path:
         cube_detection_node = Node(
             package='experiments',
             executable='cube_detection_node.py',
@@ -302,6 +320,7 @@ def launch_setup(context, *args, **kwargs):
             output='screen',
             parameters=[{
                 'camera_name': camera_name,
+                'camera_topic': f'/{camera_name}/color',
                 'model_path': os.path.expanduser(model_path),
                 'show_windows': False
             }]
@@ -321,8 +340,9 @@ def launch_setup(context, *args, **kwargs):
                 'policy_ckpt_path': os.path.expanduser(policy_file),
                 'dry_run': dry_run,
                 'goal_ang_vel': goal_ang_vel,
+                'action_alpha': action_alpha,
                 # do not command the hand before the camera calibration has closed and opened it again
-                'wait_for_frame': f'{camera_name}_frame',
+                'wait_for_frame': f'{camera_name}_frame' if enable_camera else '',
                 'hand_config_path': os.path.join(
                     get_package_share_directory('hand_control'),
                     'orca', 'configs', 'orcahand_v2', 'right', 'config.yaml'
@@ -365,7 +385,7 @@ def launch_setup(context, *args, **kwargs):
         # Core visualization and robot
         robot_state_publisher,
         visualize_joints,
-        oakd_node,
+        oakd_node if enable_camera else None,
         
         # TF: camera position from the AprilTag (measured at every start), tag → hand
         camera_calibration_node,

@@ -41,7 +41,7 @@ Usage (hand driver running, e.g. `ros2 launch hand_control orcahand_v2_controlle
 """
 
 import csv
-from collections import deque
+from camera_feedback import CubeDetectionHistory, deploy_meta_action_alpha, load_camera_contract
 from pathlib import Path
 
 import numpy as np
@@ -109,7 +109,9 @@ class PolicyInferenceNodeV2(Node):
         self.declare_parameter("policy_ckpt_path", "")
         self.declare_parameter("hand_config_path", str(DEFAULT_HAND_CONFIG))
         self.declare_parameter("policy_hz", 20.0)          # the task runs the policy at 20 Hz (decimation 6, dt 1/120)
-        self.declare_parameter("action_alpha", 0.2)        # moving average of the task's action term
+        # moving average of the task's action term; < 0 (default): the action_alpha in the deploy_meta.json next to the
+        # policy (0.2 without one). r29-r32 trained with 0.3, r15-r28 with 0.2
+        self.declare_parameter("action_alpha", -1.0)
         self.declare_parameter("velocity_obs_scale", 0.2)  # joint_vel observation scale in the task
         self.declare_parameter("goal_ang_vel", 1.0)        # rad/s about z; trained on |w| in [0.9, 1.5] (either sign = direction)
         self.declare_parameter("goal_flip_period_s", 0.0)  # > 0: flip the spin direction every this many seconds
@@ -132,6 +134,8 @@ class PolicyInferenceNodeV2(Node):
         self.policy_ckpt_path = self.get_parameter("policy_ckpt_path").value
         self.policy_hz = float(self.get_parameter("policy_hz").value)
         self.action_alpha = float(self.get_parameter("action_alpha").value)
+        if self.action_alpha < 0:
+            self.action_alpha = deploy_meta_action_alpha(self.policy_ckpt_path)
         self.velocity_obs_scale = float(self.get_parameter("velocity_obs_scale").value)
         self.goal_flip_period_s = float(self.get_parameter("goal_flip_period_s").value)
         self.dry_run = bool(self.get_parameter("dry_run").value)
@@ -179,6 +183,14 @@ class PolicyInferenceNodeV2(Node):
         assert out.shape[-1] == 17, f"policy outputs {out.shape[-1]} actions, expected 17"
         self.num_cube_frames, self.cube_ages = candidates[self.obs_dim]
         self.use_cube_obs = self.num_cube_frames > 0
+        self.obs_T_hand = OBS_T_HAND
+        if self.cube_ages:
+            contract = load_camera_contract(self.policy_ckpt_path, self.obs_dim, self.num_cube_frames,
+                                            self.policy_hz, self.action_alpha, self.velocity_obs_scale)
+            if contract is not None:
+                self.cube_max_age_s = float(contract["max_age_s"])
+                self.obs_T_hand = np.asarray(contract["obs_T_hand"])
+        self.cube_history = CubeDetectionHistory(max(1, self.num_cube_frames), self.cube_max_age_s)
         if self.cube_ages:
             inputs = (f"with the last {self.num_cube_frames} cube detection(s) and their age (no detection after "
                       f"{self.cube_max_age_s} s = no camera): runs with and without the camera")
@@ -203,7 +215,6 @@ class PolicyInferenceNodeV2(Node):
         self.last_cube_stamp = None  # image time stamp of the last detection (seconds)
         self.cube_frames = None  # r24/r25: the last num_cube_frames [pos, quat] given to the policy, oldest first
         # r26: the last num_cube_frames distinct detections as (image stamp, [pos, quat]), oldest first
-        self.cube_detections = deque(maxlen=max(1, self.num_cube_frames))
         self.camera_sees_cube = False
 
         # ========== State (USD order) ==========
@@ -253,6 +264,9 @@ class PolicyInferenceNodeV2(Node):
         except tf2_ros.TransformException:
             return None, None
         t, q = tf_msg.transform.translation, tf_msg.transform.rotation
+        values = np.array([t.x, t.y, t.z, q.x, q.y, q.z, q.w])
+        if not np.isfinite(values).all() or np.linalg.norm(values[3:]) < 1e-8:
+            return None, None
         transform = np.eye(4)
         transform[:3, :3] = Rotation.from_quat([q.x, q.y, q.z, q.w]).as_matrix()  # ROS order is (x, y, z, w)
         transform[:3, 3] = [t.x, t.y, t.z]
@@ -291,9 +305,13 @@ class PolicyInferenceNodeV2(Node):
         hand_T_cube, stamp = self.lookup_transform_from_tf(self.hand_frame, self.cube_frame)
         # the camera position is a static transform, so the stamp is that of the detector's image: a new stamp is a
         # new detection (between detections TF keeps returning the last one)
-        if hand_T_cube is not None and (self.last_cube_stamp is None or stamp > self.last_cube_stamp):
+        if self.cube_history.last_now is not None and now < self.cube_history.last_now:
+            self.last_cube_stamp = self.last_object_quat = None
+        detection_pose = None
+        if (hand_T_cube is not None and np.isfinite(stamp) and 0 <= now - stamp < self.cube_max_age_s
+                and (self.last_cube_stamp is None or stamp > self.last_cube_stamp)):
             self.last_cube_stamp = stamp
-            obs_T_cube = OBS_T_HAND @ hand_T_cube
+            obs_T_cube = self.obs_T_hand @ hand_T_cube
             object_pos = obs_T_cube[:3, 3].astype(np.float32)
             # Convert quaternion from ROS (x,y,z,w) to policy (w,x,y,z)
             x, y, z, w = Rotation.from_matrix(obs_T_cube[:3, :3]).as_quat()
@@ -302,18 +320,14 @@ class PolicyInferenceNodeV2(Node):
             if self.last_object_quat is not None and np.dot(object_quat, self.last_object_quat) < 0:
                 object_quat = -object_quat
             self.last_object_pos, self.last_object_quat = object_pos, object_quat
-            self.cube_detections.append((stamp, np.concatenate([object_pos, object_quat])))
-        tracked = self.last_cube_stamp is not None and now - self.last_cube_stamp <= self.cube_pose_timeout_s
+            detection_pose = np.concatenate([object_pos, object_quat])
+        tracked = self.last_cube_stamp is not None and 0 <= now - self.last_cube_stamp <= self.cube_pose_timeout_s
         object_pos, object_quat = (self.last_object_pos, self.last_object_quat) if tracked else (None, None)
 
         if self.cube_ages:
             # r26: the last detections with their age, "no camera" where there is none; never waits for the cube
-            cube_obs = [NO_DETECTION] * (self.num_cube_frames - len(self.cube_detections))
-            for det_stamp, pose in self.cube_detections:
-                age = max(0.0, now - det_stamp)
-                cube_obs.append(np.concatenate([pose, [age / self.cube_max_age_s]]).astype(np.float32)
-                                if age < self.cube_max_age_s else NO_DETECTION)
-            self.cube_frames = cube_obs
+            cube_obs = self.cube_history.observe(now, stamp, detection_pose)
+            self.cube_frames = list(cube_obs)
             sees_cube = cube_obs[-1][-1] < 1.0
             if sees_cube != self.camera_sees_cube:
                 if sees_cube:
@@ -348,6 +362,11 @@ class PolicyInferenceNodeV2(Node):
         # === policy ===
         with torch.no_grad():
             action_usd = self.policy(torch.from_numpy(obs).unsqueeze(0))[0].numpy().astype(np.float32)
+        if not np.isfinite(action_usd).all():
+            self.get_logger().warn("Non-finite policy action, skipping this step", throttle_duration_sec=1.0)
+            return
+        # RslRlVecEnvWrapper clips before env.step: last_action must contain the clipped action too.
+        action_usd = np.clip(action_usd, -1.0, 1.0)
         self.last_action_usd = action_usd
 
         # === action processing, as the task's EMAJointPositionToLimitsAction ===
