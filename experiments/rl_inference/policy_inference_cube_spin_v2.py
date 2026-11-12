@@ -181,6 +181,9 @@ class PolicyInferenceNodeV2(Node):
         if self.obs_dim is None:
             raise ValueError(f"The policy accepts none of {sorted(candidates)} observations")
         assert out.shape[-1] == 17, f"policy outputs {out.shape[-1]} actions, expected 17"
+        # A recurrent policy (r33: GRU student) keeps its memory in the TorchScript module, and the size probe above
+        # already advanced it. Load it again so that the first control step starts from zero memory, as in the sim.
+        self.policy = torch.jit.load(self.policy_ckpt_path, map_location="cpu").eval()
         self.num_cube_frames, self.cube_ages = candidates[self.obs_dim]
         self.use_cube_obs = self.num_cube_frames > 0
         self.obs_T_hand = OBS_T_HAND
