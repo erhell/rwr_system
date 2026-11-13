@@ -115,6 +115,16 @@ class PolicyInferenceNodeV2(Node):
         self.declare_parameter("velocity_obs_scale", 0.2)  # joint_vel observation scale in the task
         self.declare_parameter("goal_ang_vel", 1.0)        # rad/s about z; trained on |w| in [0.9, 1.5] (either sign = direction)
         self.declare_parameter("goal_flip_period_s", 0.0)  # > 0: flip the spin direction every this many seconds
+        # false (default): the last action is fed back unclipped, as this node did before 2026-11-11; the policies spun
+        # the cube faster on the real hand that way (values up to ~2.5 that the task never gives them). true: clipped to
+        # [-1, 1] like the training (RslRlVecEnvWrapper), as from 2026-11-11 to 11-13. Joint targets are clipped either way
+        self.declare_parameter("clip_last_action", False)
+        self.declare_parameter("run_seconds", 0.0)         # > 0: stop after this long (from the first step); 0: until Ctrl+C
+        # true: the wrist does not follow the policy but is held at fixed_wrist_deg (+ = fingertips towards the palm side,
+        # i.e. up with the palm facing up; limits -65..35). Reached through the same moving average as the policy's
+        # targets (~0.5 s). The observations stay truthful: measured wrist, the command actually sent, the policy's action
+        self.declare_parameter("fix_wrist", False)
+        self.declare_parameter("fixed_wrist_deg", 15.0)
         self.declare_parameter("dry_run", False)           # true: compute and log actions, but do not command the hand
         self.declare_parameter("log_period_s", 1.0)        # print the observation summary this often (0: never)
         self.declare_parameter("csv_log_path", "")         # non-empty: log observations and commands to this CSV
@@ -138,6 +148,10 @@ class PolicyInferenceNodeV2(Node):
             self.action_alpha = deploy_meta_action_alpha(self.policy_ckpt_path)
         self.velocity_obs_scale = float(self.get_parameter("velocity_obs_scale").value)
         self.goal_flip_period_s = float(self.get_parameter("goal_flip_period_s").value)
+        self.clip_last_action = bool(self.get_parameter("clip_last_action").value)
+        self.run_seconds = float(self.get_parameter("run_seconds").value)
+        self.fix_wrist = bool(self.get_parameter("fix_wrist").value)
+        self.fixed_wrist_deg = float(self.get_parameter("fixed_wrist_deg").value)
         self.dry_run = bool(self.get_parameter("dry_run").value)
         self.log_period_s = float(self.get_parameter("log_period_s").value)
         self.hand_frame = self.get_parameter("hand_frame_id").value
@@ -158,6 +172,10 @@ class PolicyInferenceNodeV2(Node):
         self.robot_to_usd_idx = [self.joint_order.index(name) for name in self.joint_order_usd]
         self.usd_to_robot_idx = [self.joint_order_usd.index(name) for name in self.joint_order]
         self.limits_usd = np.deg2rad(np.array(list(JOINT_LIMITS_USD_DEG.values()), dtype=np.float32))
+        self.wrist_idx = self.joint_order_usd.index("wrist")
+        lo, hi = JOINT_LIMITS_USD_DEG["wrist"]
+        if self.fix_wrist and not lo <= self.fixed_wrist_deg <= hi:
+            raise ValueError(f"fixed_wrist_deg {self.fixed_wrist_deg} is outside the wrist limits [{lo}, {hi}] deg")
 
         # ========== Policy ==========
         if not self.policy_ckpt_path:
@@ -242,6 +260,11 @@ class PolicyInferenceNodeV2(Node):
         self.create_timer(1.0 / self.policy_hz, self.process_once)
         mode = "DRY RUN (not commanding the hand)" if self.dry_run else "COMMANDING THE HAND"
         self.get_logger().info(f"Policy inference v2 running at {self.policy_hz} Hz, alpha {self.action_alpha}: {mode}")
+        self.get_logger().info("last action fed back " + ("clipped to [-1, 1] (as in training)" if self.clip_last_action
+                                                           else "unclipped (as before 2026-11-11)"))
+        if self.fix_wrist:
+            self.get_logger().info(f"wrist fixed at {self.fixed_wrist_deg:+.1f} deg (+ = fingertips towards the palm side), "
+                                   "the policy moves only the fingers")
 
 
     def reset_policy_memory(self):
@@ -309,6 +332,11 @@ class PolicyInferenceNodeV2(Node):
             self.start_time = self.last_flip_time = self.last_log_time = now
             self.last_joint_cmd_usd = joint_pos_usd.copy()
             self.reset_policy_memory()
+        if self.run_seconds > 0 and now - self.start_time >= self.run_seconds:
+            # ends rclpy.spin() in main(), which then closes the CSV; the hand keeps the last command
+            self.get_logger().info(f"Run time of {self.run_seconds:g} s over, stopping")
+            rclpy.shutdown()
+            return
         if self.goal_flip_period_s > 0 and now - self.last_flip_time >= self.goal_flip_period_s:
             self.goal_command[5] *= -1.0
             self.last_flip_time = now
@@ -378,12 +406,16 @@ class PolicyInferenceNodeV2(Node):
         if not np.isfinite(action_usd).all():
             self.get_logger().warn("Non-finite policy action, skipping this step", throttle_duration_sec=1.0)
             return
-        # RslRlVecEnvWrapper clips before env.step: last_action must contain the clipped action too.
-        action_usd = np.clip(action_usd, -1.0, 1.0)
+        # default: last_action unclipped, as before 2026-11-11. clip_last_action true: clipped like RslRlVecEnvWrapper
+        # does before env.step in training. The joint target below is clipped either way
+        if self.clip_last_action:
+            action_usd = np.clip(action_usd, -1.0, 1.0)
         self.last_action_usd = action_usd
 
         # === action processing, as the task's EMAJointPositionToLimitsAction ===
         target_usd = self.denormalize(np.clip(action_usd, -1.0, 1.0))
+        if self.fix_wrist:  # held still; the moving average below eases it there from the start pose
+            target_usd[self.wrist_idx] = np.deg2rad(self.fixed_wrist_deg)
         target_usd = self.action_alpha * target_usd + (1.0 - self.action_alpha) * self.last_joint_cmd_usd
         target_usd = np.clip(target_usd, self.limits_usd[:, 0], self.limits_usd[:, 1]).astype(np.float32)
         self.last_joint_cmd_usd = target_usd

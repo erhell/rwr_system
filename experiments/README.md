@@ -26,8 +26,25 @@ Useful parameters (add each as `-p name:=value`):
 | `csv_log_path` | `""` | if set, log observations, joint commands and the cube pose to this CSV file |
 | `policy_hz` | `20.0` | policy rate; must match the training task |
 | `cube_max_age_s` | `1.0` | r26 policies: a cube detection this old counts as "no camera"; must match `max_age_s` of the training task |
+| `clip_last_action` | `false` | `false`: the policy's previous action is fed back unclipped, as before 2026-11-11 (the policies spun faster on the hand that way); `true`: clipped to [-1, 1] like the training up to r33 |
+| `fix_wrist`, `fixed_wrist_deg` | `false`, `15.0` | hold the wrist at this angle instead of following the policy (+ = fingertips towards the palm); r34 is trained that way |
+| `run_seconds` | `0.0` | if > 0, stop by itself after this long (from the first step) |
 
 The joint limits, observation order and scales in the script must match the faive_lab task (`orca_v2_repose_env_cfg.py`).
+
+### Spin panel (web page for test series)
+
+`rl_inference/spin_panel.py` starts the policy runs from a local web page and records what you measure on the hand.
+With the hand controller running (step 1 above), in a second terminal:
+```bash
+python rl_inference/spin_panel.py        # then open http://localhost:8765
+```
+Pick the model, speed (1.0 / 1.3 / 1.6 / 2.0 or any), direction (CCW / CW / flip), run time, the clip and fixed-wrist
+options, Start; afterwards type in the measured speed (or count turns), drops and a note. A grid shows which
+combinations are done. Every run logs its CSV to `logs/policy_runs/` and the measurements go to
+`logs/policy_runs/real_hand_results.csv`. The models and their run folders are listed in `MODELS` at the top of the
+script. The same from the terminal: `source rl_inference/spin.zsh`, then `spin <model> <speed> [ccw|cw|flip] [real]`
+or `spin_all` for a series.
 
 ### Look at a run in Foxglove
 
