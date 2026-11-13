@@ -29,6 +29,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 import tf2_ros
 
 # For lightweight pose filtering
+import os
 import time
 
 # === pose_estimation ===
@@ -109,7 +110,10 @@ class CubeDetectionNode(Node):
         self.model = maskrcnn_detection.load_from_checkpoint(
             model_path, map_location=None if torch.cuda.is_available() else "cpu"
         )
-        self.model = self.model.cuda() if torch.cuda.is_available() else self.model
+        # CUDA, else Apple's GPU (MPS; torchvision's nms then needs PYTORCH_ENABLE_MPS_FALLBACK=1), else the CPU
+        mps = torch.backends.mps.is_available() and os.environ.get("PYTORCH_ENABLE_MPS_FALLBACK") == "1"
+        self.device = "cuda" if torch.cuda.is_available() else ("mps" if mps else "cpu")
+        self.model = self.model.to(self.device)
         self.model.eval()
 
         # ========== Camera Listener ==========
@@ -157,7 +161,7 @@ class CubeDetectionNode(Node):
         self.last_filtered_quat = None
 
         self.get_logger().info("Cube detection node initialized successfully")
-        self.get_logger().info(f"CUDA available: {torch.cuda.is_available()}")
+        self.get_logger().info(f"Detector device: {self.device}")
         self.get_logger().info(f"Process rate: {self.process_hz} Hz")
 
     def _init_kalman(self, pos_xyz):
@@ -274,8 +278,7 @@ class CubeDetectionNode(Node):
         # === Step 2: Run MaskRCNN Detection ===
         rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
         rgb_tensor = torch.from_numpy(rgb).permute(2, 0, 1).float() / 255.0
-        if torch.cuda.is_available():
-            rgb_tensor = rgb_tensor.cuda()
+        rgb_tensor = rgb_tensor.to(self.device)
 
         with torch.no_grad():
             output = self.model.get_detections([rgb_tensor])[0]
