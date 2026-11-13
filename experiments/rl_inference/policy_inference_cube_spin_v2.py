@@ -181,6 +181,8 @@ class PolicyInferenceNodeV2(Node):
         if self.obs_dim is None:
             raise ValueError(f"The policy accepts none of {sorted(candidates)} observations")
         assert out.shape[-1] == 17, f"policy outputs {out.shape[-1]} actions, expected 17"
+        # recurrent policies (r33 students) keep a GRU memory inside policy.pt: clear what the probe calls left in it
+        self.reset_policy_memory()
         self.num_cube_frames, self.cube_ages = candidates[self.obs_dim]
         self.use_cube_obs = self.num_cube_frames > 0
         self.obs_T_hand = OBS_T_HAND
@@ -241,6 +243,16 @@ class PolicyInferenceNodeV2(Node):
         mode = "DRY RUN (not commanding the hand)" if self.dry_run else "COMMANDING THE HAND"
         self.get_logger().info(f"Policy inference v2 running at {self.policy_hz} Hz, alpha {self.action_alpha}: {mode}")
 
+
+    def reset_policy_memory(self):
+        """Clear the memory of a recurrent policy (r33 students: GRU, exported by Isaac Lab with its state in the
+        hidden_state buffer, LSTMs also in cell_state), as the sim does at an episode start. No-op for the
+        feed-forward policies (r21-r32)."""
+        for name in ("hidden_state", "cell_state"):
+            state = getattr(self.policy, name, None)
+            if isinstance(state, torch.Tensor):
+                state.zero_()
+
     def hand_pos_callback(self, msg: Float32MultiArray):
         self.current_joint_pos = float32_multiarray_to_numpy(msg)
 
@@ -296,6 +308,7 @@ class PolicyInferenceNodeV2(Node):
             # as at a reset in the task: the moving average starts from the current pose, last action is zero
             self.start_time = self.last_flip_time = self.last_log_time = now
             self.last_joint_cmd_usd = joint_pos_usd.copy()
+            self.reset_policy_memory()
         if self.goal_flip_period_s > 0 and now - self.last_flip_time >= self.goal_flip_period_s:
             self.goal_command[5] *= -1.0
             self.last_flip_time = now
