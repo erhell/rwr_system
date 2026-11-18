@@ -11,6 +11,10 @@ rwr_system/logs/policy_runs/<model>_<direction>_<speed>[_clipped][_dry]_<date>.c
 typed in on the page (measured speed, drops, note) are kept in rwr_system/logs/policy_runs/real_hand_results.csv.
 Only listens on localhost.
 
+r60+ models need hand_control_node with the servo-ACC topics (2026-11-15): the policy node sets their servo profile
+(ACC 254 on some joints) before the run and 150 again after it, and uses their filter (Butterworth for r60/r61); it
+refuses to start them if the controller cannot confirm the profile. The wrist field takes each model's trained angle.
+
 The policy's last action is fed back unclipped by default, as the node did before 2026-11-11 (the policies spun
 faster on the real hand that way); the "clip" checkbox clips it to [-1, 1] like the training. Results: variant
 "unclipped" / "clipped" (older rows: "old" = unclipped, "new" = clipped).
@@ -18,6 +22,7 @@ faster on the real hand that way); the "clip" checkbox clips it to [-1, 1] like 
 import collections
 import csv
 import json
+import math
 import os
 import signal
 import subprocess
@@ -36,23 +41,79 @@ PORT = int(os.environ.get("SPIN_PANEL_PORT", "8765"))
 NODE = "experiments/lib/experiments/policy_inference_cube_spin_v2.py"
 
 # name, run folder, group, what the sim says (spin speed about the commanded axis at 1.5-2.5 rad/s commands)
+# The wrist angle each model was trained with, its action filter and servo profile come from its deploy_meta.json;
+# the policy node applies the filter and the servo profile itself
+NEW60 = "New 11-15: r60+ (Butterworth filter / fast servos, set automatically)"
+NEW36 = "New 11-14: r36-r42 (run like r34)"
+DEPLOY = "Deployment variants: a trained policy with other servo settings (NOT trained for them)"
 MODELS = [
+    ("r60e_max_acc", "deploy_r60e_max_acc", DEPLOY, "r60e's policy unchanged (model_5445, EMA 0.3, wrist 15), run with ACC 254 on ALL joints; r60e was trained with 254 only on thumb + ring (150 on index, middle, pinky, wrist): those ramp up to 1.7x faster than in training"),
+    ("r60", "2026-11-15_00-31-03_r60", NEW60, "Butterworth 3 Hz + ACC 254 on thumb/ring + servo-ramp sysID, 1.5-3.0 rad/s: sim 9.9% drops, 1.69 rad/s (1.67 at 1.5-2.5)"),
+    ("r60e", "2026-11-15_00-30-16_r60e", NEW60, "r60 with r34's moving average instead of the Butterworth: sim 10.9% drops, 1.78 rad/s (1.76 at 1.5-2.5)"),
+    ("r65", "2026-11-15_09-54-29_r65", NEW60, "r60e fine-tuned at 2.0-4.0 rad/s, ACC 254 on all finger servos (fast_all, wrist 150), EMA 0.3. FINAL export (converged at iteration 6494, pulled 2026-11-15 ~13:50); the runs of 11-15 12:46 used the export of 5750 (kept in exported_it5750_tested_20261115/). Sim model_6000: 8.9% drops"),
+    ("r61", "2026-11-15_00-30-25_r61", NEW60, "r60 + camera, run here without it: sim camera off 11.5% drops, 1.55 rad/s (camera on 11.2%, 1.56)"),
+    ("r42", "2026-11-14_18-10-27_r42", NEW36, "r34 fine-tuned on cube masses 33-165 g + cube speed penalty: sim 5.5% drops, 1.88 rad/s (r34 on the same task 5.4%, 1.80)"),
+    ("r42s", "2026-11-14_19-01-14_r42s", NEW36, "r42 with commands 1.8-3.0 rad/s: sim 5.9% drops, 1.94 rad/s"),
+    ("r36", "2026-11-13_23-47-38_r36", NEW36, "r34 fine-tuned for speed (alpha 0.45, 1.8-3.0 rad/s): sim 7.1% drops, 2.27 rad/s (5.8%, 2.23 at 1.5-2.5)"),
+    ("r36w", "2026-11-14_02-44-54_r36w", NEW36, "r36 with the wrist at 30 deg: sim 7.9% drops, 2.21 rad/s"),
+    ("r36wx", "2026-11-14_04-56-18_r36wx", NEW36, "r36w with alpha 0.6: sim 6.9% drops, 2.44 rad/s (wrist 30)"),
+    ("r37", "2026-11-14_12-58-50_r37", NEW36, "from scratch, cube-in-palm reward + speed curriculum: sim 9.2% drops, 1.03 rad/s"),
+    ("r37c", "2026-11-14_13-05-38_r37c", NEW36, "r37 + finger proximity reward: sim 7.4% drops, only 0.50 rad/s"),
     ("r31", "2026-11-11_15-44-24_r31", "Joint-only policies", "sim: 1.88 rad/s, 4.4% drops; lag matched to the real hand"),
-    ("r33B", "2026-11-13_02-59-19_r33B", "Joint-only policies", "sim: 2.10 rad/s, 7.0% drops; GRU student, sensitive to extra lag"),
     ("r30", "2026-11-10_18-39-03_r30", "Joint-only policies", "sim: 1.61 rad/s, 7.4% drops (with its lag); older motor fits"),
     ("r29", "2026-11-11_00-15-49_r29", "Joint-only policies", "sim: 1.79 rad/s, 6.1% drops; no lag training"),
     ("r28", "2026-11-09_20-39-13_r28", "Joint-only policies", "sim: 1.47 rad/s, 5.4% drops"),
     ("r21", "2026-11-08_20-44-06_r21_sysid_16k", "Joint-only policies", "r21_sysid_16k, trained at 0.9-1.5: sim 1.36 rad/s there, 1.29 at 1.5-2.5"),
-    ("r33A", "2026-11-12_15-58-48_r33A", "Joint-only policies", "sim: 1.87 rad/s, 8.8% drops; GRU student, worse than r31 in sim"),
+    ("r34", "2026-11-13_11-35-03_r34", "Joint-only policies", "r31 trained with the wrist held at 10-20 deg + unclipped inputs + 11-13 sysID: sim 5.1% drops, 1.80 rad/s at wrist 15 (keep 'fix the wrist' on)"),
     ("r32", "2026-11-11_16-01-53_r32", "Camera policies, run without the camera", "sim with the camera off: 1.95 rad/s, 5.2% drops"),
-    ("r33cB", "2026-11-13_02-59-19_r33cB", "Camera policies, run without the camera", "sim with the camera off: 2.14 rad/s, 5.4% drops; GRU"),
-    ("r33cBd", "2026-11-13_07-22-25_r33cBd", "Camera policies, run without the camera", "sim with the camera off: 2.02 rad/s, 10.0% drops; GRU, delay-robust"),
+    ("r35", "2026-11-13_12-27-50_r35", "Camera policies, run without the camera", "r34c + the camera timing measured on the Mac: sim 5.1% drops, 1.84 rad/s at wrist 15, camera off 5.5% (keep 'fix the wrist' on)"),
+    ("r34c", "2026-11-13_11-35-00_r34c", "Camera policies, run without the camera", "r32 with the wrist held + unclipped + 11-13 sysID: sim 5.0% drops, 1.87 rad/s at wrist 15, camera off 5.2% (keep 'fix the wrist' on)"),
     ("r26_8k", "2026-11-08_12-51-25_r26_8k", "Camera policies, run without the camera", "trained with the camera off in 20% of episodes, up to 2.0 rad/s; before the sysID fits"),
 ]
-MODEL_BY_NAME = {m[0]: m for m in MODELS}
-SPEEDS = [1.0, 1.3, 1.6, 2.0]
+# more models without restarting the panel (2026-11-15): spin_panel_models.json next to this script, a list of
+# [name, run folder, group, note]; read on every page load and every start, so a browser refresh shows them
+EXTRA_MODELS_FILE = Path(__file__).resolve().with_name("spin_panel_models.json")
+
+
+def all_models():
+    try:
+        extra = [tuple(m) for m in json.loads(EXTRA_MODELS_FILE.read_text())]
+    except (OSError, ValueError, TypeError):
+        extra = []
+    known = {m[0] for m in MODELS}
+    return [m for m in extra if len(m) == 4 and m[0] not in known] + MODELS
+
+
+def model_by_name(name):
+    return {m[0]: m for m in all_models()}.get(name)
+SPEEDS = [1.0, 1.3, 1.6, 2.0, 2.5, 3.0]
+
+
+def model_info(folder):
+    """The wrist angle the model was trained with (deg, None: not held) and what the node sets on the hand for it."""
+    path = RUNS_DIR / folder / "exported/deploy_meta.json"
+    try:
+        meta = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {"wrist_deg": None, "hand": "no deploy_meta.json: moving average 0.2, servo ACC 150"}
+    wrist = (meta.get("fixed_joint_pos_rad") or {}).get("right_wrist")
+    wrist_deg = round(math.degrees(sum(wrist) / 2), 1) if wrist else None
+    filt = meta.get("action_filter") or {"type": "ema", "alpha": meta.get("action_alpha", 0.2)}
+    filt_text = (f"Butterworth {filt.get('cutoff_hz', '?')} Hz" if filt.get("type") == "butter2"
+                 else f"moving average {filt.get('alpha', meta.get('action_alpha', 0.2))}")
+    servo = meta.get("servo_profile")
+    servo_text = f"servo profile {servo.get('name')} (set and reset automatically)" if servo else "servo ACC 150"
+    trained = f"trained with the wrist at {wrist_deg:g}°" if wrist_deg is not None else "trained with the wrist free"
+    command = meta.get("command") or {}
+    if command.get("axis_mode") == "principal":
+        cmd_text = f"trained on x / y / z, both directions, {command.get('principal_speed_range')} rad/s (pick the axis)"
+    elif command.get("negative_prob") is not None:
+        cmd_text = f"trained about z, {100 * command['negative_prob']:.0f} % CW"
+    else:
+        cmd_text = "trained about z, CW and CCW equally"
+    return {"wrist_deg": wrist_deg, "hand": f"{trained}; {filt_text}, {servo_text}; {cmd_text}"}
 FIELDS = ["id", "date", "time", "model", "run_folder", "direction", "speed", "goal_ang_vel", "variant", "fixed_wrist_deg", "dry_run",
-          "run_seconds", "duration_s", "exit_code", "measured_rad_s", "drops", "note", "csv"]
+          "run_seconds", "duration_s", "exit_code", "measured_rad_s", "drops", "note", "csv", "axis"]  # axis (2026-11-15): z, x or y; empty in older rows = z
 
 
 def find_node() -> Path:
@@ -95,7 +156,7 @@ class Panel:
     # ---------- runs ----------
     def start(self, cfg):
         name = cfg.get("model")
-        if name not in MODEL_BY_NAME:
+        if model_by_name(name) is None:
             raise ValueError(f"unknown model {name!r}")
         speed = float(cfg.get("speed"))
         if not 0.0 < speed <= 5.0:
@@ -103,6 +164,11 @@ class Panel:
         direction = cfg.get("direction")
         if direction not in ("ccw", "cw", "flip"):
             raise ValueError("direction must be ccw, cw or flip")
+        # spin axis (2026-11-15): z (vertical) for every model; x / y only for models trained on all axes (r100xyz).
+        # ccw = positive, cw = negative angular velocity about the axis (about z: as seen from above)
+        axis = str(cfg.get("axis") or "z")
+        if axis not in ("x", "y", "z"):
+            raise ValueError("axis must be x, y or z")
         seconds = float(cfg.get("seconds") or 0)
         if not 0.0 <= seconds <= 3600:
             raise ValueError("run time must be between 0 and 3600 s")
@@ -111,19 +177,27 @@ class Panel:
         wrist_deg = float(cfg.get("wrist_deg", 15.0))
         if fix_wrist and not -65.0 <= wrist_deg <= 35.0:
             raise ValueError("the wrist angle must be between -65 and 35 deg")
-        _, folder, _, _ = MODEL_BY_NAME[name]
+        _, folder, _, _ = model_by_name(name)
         policy = RUNS_DIR / folder / "exported/policy.pt"
         if not policy.exists():
             raise ValueError(f"{policy} not found")
+        if axis != "z":
+            try:
+                trained = (json.loads((RUNS_DIR / folder / "exported/deploy_meta.json").read_text()).get("command") or {})
+            except (OSError, ValueError):
+                trained = {}
+            if trained.get("axis_mode") != "principal":
+                raise ValueError(f"{name} was trained only about z: axis {axis} needs a model trained on all axes (r100xyz)")
         goal = -speed if direction == "cw" else speed
         flip = 8.0 if direction == "flip" else 0.0
         now = datetime.now()
-        csv_path = LOG_DIR / (f"{name}_{direction}_{speed:g}{'_clipped' if clip else ''}{f'_wrist{wrist_deg:g}' if fix_wrist else ''}{'_dry' if dry else ''}"
+        csv_path = LOG_DIR / (f"{name}_{'' if axis == 'z' else 'axis' + axis + '_'}{direction}_{speed:g}{'_clipped' if clip else ''}{f'_wrist{wrist_deg:g}' if fix_wrist else ''}{'_dry' if dry else ''}"
                               f"_{now:%Y%m%d_%H%M%S}.csv")
         cmd = [str(self.node), "--ros-args",
                "-p", f"policy_ckpt_path:={policy}",
                "-p", f"goal_ang_vel:={goal:.3f}",
                "-p", f"goal_flip_period_s:={flip:.1f}",
+               "-p", f"goal_axis:={axis}",
                "-p", f"clip_last_action:={'true' if clip else 'false'}",
                "-p", f"run_seconds:={seconds:.1f}",
                "-p", f"fix_wrist:={'true' if fix_wrist else 'false'}",
@@ -145,7 +219,7 @@ class Panel:
                 "goal_ang_vel": f"{goal:g}", "variant": "clipped" if clip else "unclipped",
                 "fixed_wrist_deg": f"{wrist_deg:g}" if fix_wrist else "", "dry_run": "yes" if dry else "no",
                 "run_seconds": f"{seconds:g}", "duration_s": "", "exit_code": "", "measured_rad_s": "", "drops": "",
-                "note": "", "csv": str(csv_path), "_start": time.time(),
+                "note": "", "csv": str(csv_path), "axis": axis, "_start": time.time(),
             }
             self.results.append(self.current)
             self.save()
@@ -249,8 +323,9 @@ class Handler(BaseHTTPRequestHandler):
         if self.path in ("/", "/index.html"):
             self._send(200, PAGE, "text/html; charset=utf-8")
         elif self.path == "/api/config":
-            self._send(200, json.dumps({"models": [{"name": m[0], "folder": m[1], "group": m[2], "sim": m[3]}
-                                                   for m in MODELS], "speeds": SPEEDS, "results_file": str(RESULTS)}))
+            self._send(200, json.dumps({"models": [{"name": m[0], "folder": m[1], "group": m[2], "sim": m[3],
+                                                    **model_info(m[1])}
+                                                   for m in all_models()], "speeds": SPEEDS, "results_file": str(RESULTS)}))
         elif self.path == "/api/state":
             self._send(200, json.dumps(PANEL.state()))
         else:
@@ -326,9 +401,12 @@ max-height:260px;overflow:auto;white-space:pre-wrap}
   <div class="row"><div class="seg" id="speeds"></div><input id="speed" type="number" step="0.1" min="0.1" max="5" style="width:90px"></div>
   <label>Direction (seen from above)</label>
   <div class="seg row" id="dirs"><button data-d="ccw">CCW ⟲</button><button data-d="cw">CW ⟳</button><button data-d="flip">flip every 8 s</button></div>
+  <label>Spin axis</label>
+  <div class="seg row" id="axes"><button data-a="z">z (vertical)</button><button data-a="x">x (across the palm)</button><button data-a="y">y (along the fingers)</button></div>
+  <div class="hint">x / y only for models trained on all axes (r100xyz); there CCW = positive, CW = negative about the axis. The test grid shows z runs only.</div>
   <label>Run time (s, 0 = until Stop)</label><input id="secs" type="number" min="0" max="3600" step="5" value="30" style="width:110px">
   <div class="row" style="margin-top:10px"><label style="margin:0"><input type="checkbox" id="clip"> clip the previous actions to [-1, 1] (as in training; default off = as before 11-11)</label></div>
-  <div class="row"><label style="margin:0"><input type="checkbox" id="fixw" checked> fix the wrist at</label><input id="wdeg" type="number" value="15" step="1" min="-65" max="35" style="width:70px">°<span class="hint">(+ = fingertips towards the palm = up; −65…35; off = the policy moves the wrist)</span></div>
+  <div class="row"><label style="margin:0"><input type="checkbox" id="fixw" checked> fix the wrist at</label><input id="wdeg" type="number" value="15" step="1" min="-65" max="35" style="width:70px">°<span class="hint">(set to the angle the model was trained with when you pick it; + = fingertips towards the palm = up; −65…35; off = the policy moves the wrist)</span></div>
   <div class="row"><label style="margin:0"><input type="checkbox" id="dry"> dry run (nothing sent to the hand)</label></div>
   <div class="row" style="margin-top:14px"><button class="btn go" id="start">Start</button><button class="btn stop" id="stop">Stop</button>
    <span style="flex:1"></span><button class="btn es" id="estop">E-STOP</button></div>
@@ -347,7 +425,7 @@ max-height:260px;overflow:auto;white-space:pre-wrap}
   </div>
  </div>
 </div>
-<div class="card"><h2>Test grid</h2><div class="hint" style="margin-bottom:8px">Runs with <b id="gridmode">unclipped previous actions, wrist fixed at +15°</b> (follows the checkboxes above). Latest measured speed per model, speed and direction
+<div class="card"><h2>Test grid</h2><div class="hint" style="margin-bottom:8px">Runs with <b id="gridmode">unclipped previous actions, wrist fixed at each model’s angle (° next to its name)</b> (follows the checkboxes above). Latest measured speed per model, speed and direction
  (rad/s; colour = measured / commanded). “run” = run without a measured value. Click a cell to select it.</div>
  <div class="scroll"><table class="matrix" id="matrix"></table></div></div>
 <div class="card"><h2>All runs</h2><div class="hint" style="margin-bottom:8px">Edit measured speed, drops and note directly; saved when you leave the field.</div>
@@ -357,36 +435,38 @@ max-height:260px;overflow:auto;white-space:pre-wrap}
 <script>
 window.onerror=(msg,src,line)=>{const p=document.getElementById('err');if(p)p.textContent=`page error: ${msg} (line ${line})`;};
 const $=id=>document.getElementById(id);
-let cfg=null, st=null, sel={model:null,speed:1.0,dir:'ccw'}, lastVersion=-1, shownRun=null;
+let cfg=null, st=null, sel={model:null,speed:1.0,dir:'ccw',axis:'z'}, lastVersion=-1, shownRun=null, wristBy={};
 const fmt=(x,d=2)=>x===''||x==null||isNaN(+x)?'':(+x).toFixed(d);
 async function api(path,body){const r=await fetch(path,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
  const j=await r.json(); if(!r.ok) throw new Error(j.error||r.status); return j;}
 function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 const isClipped=r=>r.variant==='clipped'||r.variant==='new';
 const wristKey=r=>r.fixed_wrist_deg?String(+r.fixed_wrist_deg):'';
-const curWrist=()=>$('fixw').checked?String(+$('wdeg').value):'';
+const curWrist=(m=sel.model)=>$('fixw').checked?String(+(wristBy[m]??15)):'';
 const wristText=w=>w===''?'wrist moved by the policy':`wrist fixed at ${+w>0?'+':''}${w}°`;
-function gridMode(){$('gridmode').textContent=($('clip').checked?'clipped':'unclipped')+' previous actions, '+wristText(curWrist());renderMatrix();}
+function gridMode(){$('gridmode').textContent=($('clip').checked?'clipped':'unclipped')+' previous actions, '+($('fixw').checked?'wrist fixed at each model’s angle (° next to its name)':'wrist moved by the policy');renderMatrix();}
 function ratioColor(r){if(!isFinite(r))return'';const h=Math.max(0,Math.min(120,r*120));return`hsl(${h} 60% 45% / .35)`;}
-function setSel(p){Object.assign(sel,p);$('model').value=sel.model;$('speed').value=sel.speed;
+function setSel(p){if(p.model!==undefined&&p.model!==sel.model)$('wdeg').value=wristBy[p.model]??15;Object.assign(sel,p);$('model').value=sel.model;$('speed').value=sel.speed;
  document.querySelectorAll('#speeds button').forEach(b=>b.classList.toggle('on',+b.dataset.s===+sel.speed));
  document.querySelectorAll('#dirs button').forEach(b=>b.classList.toggle('on',b.dataset.d===sel.dir));
- const m=cfg.models.find(m=>m.name===sel.model);$('simnote').textContent=m?m.sim:'';renderMatrix();}
+ document.querySelectorAll('#axes button').forEach(b=>b.classList.toggle('on',b.dataset.a===sel.axis));
+ const m=cfg.models.find(m=>m.name===sel.model);$('simnote').innerHTML=m?esc(m.sim)+'<br>'+esc(m.hand||''):'';renderMatrix();}
 async function init(){
- cfg=await api('/api/config');$('resfile').textContent='results: '+cfg.results_file;
+ cfg=await api('/api/config');$('resfile').textContent='results: '+cfg.results_file;for(const m of cfg.models)wristBy[m.name]=m.wrist_deg??15;
  let html='',g=null;for(const m of cfg.models){if(m.group!==g){if(g)html+='</optgroup>';g=m.group;html+=`<optgroup label="${esc(g)}">`;}
   html+=`<option value="${m.name}">${m.name}</option>`;}$('model').innerHTML=html+'</optgroup>';
  $('speeds').innerHTML=cfg.speeds.map(s=>`<button data-s="${s}">${s.toFixed(1)}</button>`).join('');
  $('speeds').onclick=e=>{if(e.target.dataset.s)setSel({speed:+e.target.dataset.s});};
  $('dirs').onclick=e=>{if(e.target.dataset.d)setSel({dir:e.target.dataset.d});};
+ $('axes').onclick=e=>{if(e.target.dataset.a)setSel({axis:e.target.dataset.a});};
  $('model').onchange=()=>setSel({model:$('model').value});$('speed').onchange=()=>setSel({speed:+$('speed').value});
- $('start').onclick=start;$('clip').onchange=gridMode;$('fixw').onchange=gridMode;$('wdeg').onchange=gridMode;$('stop').onclick=()=>api('/api/stop',{}).then(poll);
+ $('start').onclick=start;$('clip').onchange=gridMode;$('fixw').onchange=gridMode;$('wdeg').onchange=()=>{wristBy[sel.model]=+$('wdeg').value;gridMode();};$('stop').onclick=()=>api('/api/stop',{}).then(poll);
  $('estop').onclick=()=>{api('/api/estop',{}).then(poll).catch(e=>$('err').textContent=e.message);};
  $('m_calc').onclick=()=>{const t=+$('m_turns').value,s=+$('m_secs').value;if(t>0&&s>0){$('m_val').value=(t*2*Math.PI/s).toFixed(2);showRatio();}};
  $('m_val').oninput=showRatio;$('m_save').onclick=saveMeas;
  setSel({model:cfg.models[0].name});poll();setInterval(poll,1000);}
 async function start(){$('err').textContent='';
- try{await api('/api/start',{model:sel.model,speed:+$('speed').value,direction:sel.dir,seconds:+$('secs').value,clip:$('clip').checked,fix_wrist:$('fixw').checked,wrist_deg:+$('wdeg').value,dry:$('dry').checked});
+ try{await api('/api/start',{model:sel.model,speed:+$('speed').value,direction:sel.dir,axis:sel.axis,seconds:+$('secs').value,clip:$('clip').checked,fix_wrist:$('fixw').checked,wrist_deg:+$('wdeg').value,dry:$('dry').checked});
   shownRun=null;poll();}catch(e){$('err').textContent=e.message;}}
 function showRatio(){const c=st&&st.current;if(!c)return;const v=+$('m_val').value;
  $('ratio').textContent=v>0?`= ${(v/(+c.speed)*100).toFixed(0)} % of the commanded ${c.speed} rad/s`:'';}
@@ -407,11 +487,11 @@ async function poll(){try{st=await api('/api/state');}catch(e){$('pill').textCon
   if(!st.running&&!$('m_secs').value&&c.duration_s)$('m_secs').value=(+c.run_seconds||+c.duration_s);}
  const log=$('log'),atEnd=log.scrollTop+log.clientHeight>=log.scrollHeight-5;log.textContent=st.log.join('\n');if(atEnd)log.scrollTop=log.scrollHeight;
  if(st.version!==lastVersion&&!$('runs').contains(document.activeElement)){lastVersion=st.version;renderRuns();renderMatrix();}}
-function latest(model,speed,dir){let best=null;for(const r of st.results){if(r.model===model&&+r.speed===+speed&&r.direction===dir&&r.dry_run!=='yes'&&isClipped(r)===$('clip').checked&&wristKey(r)===curWrist()){
+function latest(model,speed,dir){let best=null;for(const r of st.results){if(r.model===model&&+r.speed===+speed&&r.direction===dir&&(r.axis||'z')==='z'&&r.dry_run!=='yes'&&isClipped(r)===$('clip').checked&&wristKey(r)===curWrist(model)){
  if(!best||(r.measured_rad_s!==''&&(best.measured_rad_s===''||r.id>best.id))||(r.measured_rad_s===''&&best.measured_rad_s===''&&r.id>best.id))best=r;}}return best;}
 function renderMatrix(){if(!cfg||!st)return;const dirs=['ccw','cw'];let h='<tr><th></th>'+cfg.speeds.map(s=>`<th colspan="2">${s.toFixed(1)}</th>`).join('')+'</tr>';
  h+='<tr><th></th>'+cfg.speeds.map(()=>'<th>CCW</th><th>CW</th>').join('')+'</tr>';
- for(const m of cfg.models){h+=`<tr><th class="mod">${m.name}</th>`;for(const s of cfg.speeds)for(const d of dirs){const r=latest(m.name,s,d);
+ for(const m of cfg.models){h+=`<tr><th class="mod">${m.name}${$('fixw').checked?` <span class="hint">${wristBy[m.name]}°</span>`:''}</th>`;for(const s of cfg.speeds)for(const d of dirs){const r=latest(m.name,s,d);
   let txt='',bg='';if(r){if(r.measured_rad_s!==''){txt=fmt(r.measured_rad_s);bg=ratioColor(+r.measured_rad_s/s);}else txt='run';}
   const on=sel.model===m.name&&+sel.speed===s&&sel.dir===d;
   h+=`<td class="m${on?' sel':''}" style="background:${bg}" data-m="${m.name}" data-s="${s}" data-d="${d}" title="${m.name} ${d} ${s}">${txt}</td>`;}h+='</tr>';}

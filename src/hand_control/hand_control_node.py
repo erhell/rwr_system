@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 import numpy as np
 from std_msgs.msg import Float32MultiArray
 from std_srvs.srv import SetBool
@@ -53,6 +54,37 @@ class HandControllerNode(Node):
                 0.01, # seconds
                 self.orca_v2_control_cb,  # callback
             )
+            # servo acceleration (ACC register 0..254 per joint, joint_ids order of config.yaml). The policy node sets
+            # the profile its model was trained with (deploy_meta.json servo_profile, r60+) and sets 150 (orca_core's
+            # default, which this node starts with) for all other models. /servo_acc holds the values read back from
+            # the motors (latched)
+            self.servo_acc_pub = self.create_publisher(
+                Float32MultiArray, f"/{self.chirality}/hand/servo_acc",
+                QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL, reliability=ReliabilityPolicy.RELIABLE))
+            self.servo_acc_sub = self.create_subscription(
+                Float32MultiArray, f"/{self.chirality}/hand/set_servo_acc", self.set_servo_acc_cb, 10)
+            self.publish_servo_acc()
+            # servo position-loop gain KP (register 50, 2026-11-15). orca_core never writes it, so a value set by a run
+            # stays until set again or a power cycle: the policy node sets its model's KP (deploy_meta.json
+            # servo_profile.kp, 32 = the motors' own when missing) before every run and 32 after it. /servo_kp holds the
+            # values read back from the motors (latched); logged here at startup so a left-over value is visible
+            self.servo_kp_pub = self.create_publisher(
+                Float32MultiArray, f"/{self.chirality}/hand/servo_kp",
+                QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL, reliability=ReliabilityPolicy.RELIABLE))
+            self.servo_kp_sub = self.create_subscription(
+                Float32MultiArray, f"/{self.chirality}/hand/set_servo_kp", self.set_servo_kp_cb, 10)
+            kp = self.publish_servo_kp()
+            self.get_logger().info("servo KP at start: " + self.kp_text(kp))
+            # motor goal-current limit (register 44, mA, 2026-11-15): orca_core sets config.yaml's max_current (900 mA)
+            # at start; the policy node sets its model's limit (deploy_meta.json servo_profile.max_current_ma, 900 when
+            # missing) before every run and 900 after it. /max_current_ma: read back from the motors (latched)
+            self.max_current_pub = self.create_publisher(
+                Float32MultiArray, f"/{self.chirality}/hand/max_current_ma",
+                QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL, reliability=ReliabilityPolicy.RELIABLE))
+            self.max_current_sub = self.create_subscription(
+                Float32MultiArray, f"/{self.chirality}/hand/set_max_current_ma", self.set_max_current_cb, 10)
+            cur = self.publish_max_current()
+            self.get_logger().info("motor current limit at start (mA): " + self.ma_text(cur))
 
         else:
             raise NotImplementedError("Hand name not recognized")
@@ -95,6 +127,65 @@ class HandControllerNode(Node):
         self.joint_velocity_pub.publish(Float32MultiArray(data=np.deg2rad(qd_deg).astype(np.float32)))
 
 
+    def publish_servo_acc(self):
+        try:
+            acc = self._hc.get_servo_acc()
+        except Exception as e:
+            self.get_logger().error(f"Reading the servo acceleration failed: {e}")
+            acc = np.full(self._hc.num_motors, np.nan)
+        self.servo_acc_pub.publish(Float32MultiArray(data=acc.astype(np.float32).tolist()))
+        return acc
+
+    def set_servo_acc_cb(self, msg):
+        acc = np.array(msg.data, dtype=np.float64)
+        try:
+            self._hc.set_servo_acc(acc)
+        except Exception as e:
+            self.get_logger().error(f"Setting the servo acceleration failed: {e}")
+        now = self.publish_servo_acc()
+        self.get_logger().info("servo ACC: " + " ".join(
+            f"{j}={'?' if np.isnan(a) else int(a)}" for j, a in zip(self._hc.joint_ids, now)))
+
+    def kp_text(self, kp):
+        return " ".join(f"{j}={'?' if np.isnan(k) else int(k)}" for j, k in zip(self._hc.joint_ids, kp))
+
+    def publish_servo_kp(self):
+        try:
+            kp = self._hc.get_servo_kp()
+        except Exception as e:
+            self.get_logger().error(f"Reading the servo KP failed: {e}")
+            kp = np.full(self._hc.num_motors, np.nan)
+        self.servo_kp_pub.publish(Float32MultiArray(data=kp.astype(np.float32).tolist()))
+        return kp
+
+    def set_servo_kp_cb(self, msg):
+        kp = np.array(msg.data, dtype=np.float64)
+        try:
+            self._hc.set_servo_kp(kp)
+        except Exception as e:
+            self.get_logger().error(f"Setting the servo KP failed: {e}")
+        self.get_logger().info("servo KP: " + self.kp_text(self.publish_servo_kp()))
+
+    def ma_text(self, ma):
+        return " ".join(f"{j}={'?' if np.isnan(m) else f'{m:g}'}" for j, m in zip(self._hc.joint_ids, ma))
+
+    def publish_max_current(self):
+        try:
+            cur = self._hc.get_max_current_ma()
+        except Exception as e:
+            self.get_logger().error(f"Reading the motor current limit failed: {e}")
+            cur = np.full(self._hc.num_motors, np.nan)
+        self.max_current_pub.publish(Float32MultiArray(data=cur.astype(np.float32).tolist()))
+        return cur
+
+    def set_max_current_cb(self, msg):
+        cur = np.array(msg.data, dtype=np.float64)
+        try:
+            self._hc.set_max_current_ma(cur)
+        except Exception as e:
+            self.get_logger().error(f"Setting the motor current limit failed: {e}")
+        self.get_logger().info("motor current limit (mA): " + self.ma_text(self.publish_max_current()))
+
     def set_torque_enabled_cb(self, request, response):
         """
         Enable or disable torque on the underlying hand controller via a SetBool service.
@@ -124,6 +215,9 @@ class HandControllerNode(Node):
                 if not self._orca_timer.is_canceled():
                     self._orca_timer.cancel()
                     self.destroy_subscription(self.joint_angle_sub)
+                    self.destroy_subscription(self.servo_acc_sub)
+                    self.destroy_subscription(self.servo_kp_sub)
+                    self.destroy_subscription(self.max_current_sub)
                     self._hc.disconnect()
             else:
                 self._hc.disable_torque()

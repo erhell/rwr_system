@@ -1,0 +1,152 @@
+[INFO] [launch]: All log files can be found below /home/erhell/.ros/log/2026-11-15-15-07-14-476047-erhell-QEMU-Virtual-Machine-18870
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [hand_control_node.py-1]: process started with pid [18905]
+[INFO] [visualize_joints.py-2]: process started with pid [18907]
+[INFO] [robot_state_publisher-3]: process started with pid [18909]
+[INFO] [visualize_joints.py-4]: process started with pid [18911]
+[INFO] [robot_state_publisher-5]: process started with pid [18913]
+[INFO] [static_transform_publisher-6]: process started with pid [18915]
+[INFO] [rviz2-7]: process started with pid [18917]
+[static_transform_publisher-6] [WARN] [1794751634.641440285] []: Old-style arguments are deprecated; see --help for new-style arguments
+[static_transform_publisher-6] [INFO] [1794751634.693450446] [static_transform_publisher_6hXAH0GIfCrEq4ns]: Spinning until stopped - publishing transform
+[static_transform_publisher-6] translation: ('0.000000', '0.000000', '0.000000')
+[static_transform_publisher-6] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+[static_transform_publisher-6] from 'hand_root' to 'right/motor_sensed/hand_root'
+[robot_state_publisher-5] [INFO] [1794751634.696323321] [right.motor_sensed.robot_state_publisher_motor_sensed]: Robot initialized
+[robot_state_publisher-3] [INFO] [1794751634.697030362] [right.robot_state_publisher]: Robot initialized
+[rviz2-7] Warning: Ignoring XDG_SESSION_TYPE=wayland on Gnome. Use QT_QPA_PLATFORM=wayland to run on Wayland anyway.
+[hand_control_node.py-1] [INFO] [1794751634.748530815] [right.hand_controller_node]: Hand Controller Node Started with hand: orca_v2
+[hand_control_node.py-1] [INFO] [1794751634.748824940] [right.hand_controller_node]: Hand Controller Node Started with chirality: right
+[visualize_joints.py-4] [INFO] [1794751634.752408731] [right.visualize_joints_motor_sensed]: Subscribing to "hand/policy_output"
+[visualize_joints.py-4] [INFO] [1794751634.752557564] [right.visualize_joints_motor_sensed]: Publishing to "/joint_states"
+[visualize_joints.py-2] [INFO] [1794751634.789574727] [right.visualize_joints]: Subscribing to "hand/policy_output"
+[visualize_joints.py-2] [INFO] [1794751634.789965185] [right.visualize_joints]: Publishing to "/joint_states"
+[rviz2-7] [INFO] [1794751634.890225590] [rviz2]: Stereo is NOT SUPPORTED
+[rviz2-7] [INFO] [1794751634.890277424] [rviz2]: OpenGl version: 4.5 (GLSL 4.5)
+[rviz2-7] [INFO] [1794751634.926240503] [rviz2]: Stereo is NOT SUPPORTED
+[hand_control_node.py-1] WARNING:orca_core.hardware_hand:feetech motors have no multi-turn mode: the wrist stays in 'current_based_position'. Its ROM (-65..35 deg) is only reachable within one turn of the motor's zero.
+[hand_control_node.py-1] /home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/qos.py:169: UserWarning: A zero depth with KEEP_LAST doesn't make sense; no data could be stored. This will be interpreted as SYSTEM_DEFAULT
+[hand_control_node.py-1]   warnings.warn(
+[hand_control_node.py-1] [INFO] [1794751806.550981776] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794751816.484795626] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794751830.555903040] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794751832.063954817] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794751854.559253018] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794751862.163506921] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794751888.254881464] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794751907.396866094] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] [INFO] [1794752016.592840381] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794752026.386230968] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794752040.598930222] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794752054.481479995] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] [INFO] [1794752071.409692757] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794752077.921995818] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794752114.472472745] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794752117.230964600] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 1: result=-7
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [rviz2-7]: sending signal 'SIGINT' to process[rviz2-7]
+[INFO] [static_transform_publisher-6]: sending signal 'SIGINT' to process[static_transform_publisher-6]
+[INFO] [robot_state_publisher-5]: sending signal 'SIGINT' to process[robot_state_publisher-5]
+[INFO] [visualize_joints.py-4]: sending signal 'SIGINT' to process[visualize_joints.py-4]
+[INFO] [robot_state_publisher-3]: sending signal 'SIGINT' to process[robot_state_publisher-3]
+[INFO] [visualize_joints.py-2]: sending signal 'SIGINT' to process[visualize_joints.py-2]
+[INFO] [hand_control_node.py-1]: sending signal 'SIGINT' to process[hand_control_node.py-1]
+[rviz2-7] [INFO] [1794752447.533099268] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[static_transform_publisher-6] [INFO] [1794752447.533394975] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[robot_state_publisher-5] [INFO] [1794752447.533594641] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[visualize_joints.py-4] Reading hand scheme from /home/erhell/ros_ws/install/viz/share/viz/models/orcahand_v2/scheme_orcahand_v2.yaml
+[visualize_joints.py-4] Joint names: ['wrist', 'thumb_cmc', 'thumb_abd', 'thumb_mcp', 'thumb_dip', 'index_abd', 'index_mcp', 'index_pip', 'middle_abd', 'middle_mcp', 'middle_pip', 'ring_abd', 'ring_mcp', 'ring_pip', 'pinky_abd', 'pinky_mcp', 'pinky_pip']
+[visualize_joints.py-4] Traceback (most recent call last):
+[robot_state_publisher-3] [INFO] [1794752447.535715218] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[visualize_joints.py-4]   File "/home/erhell/ros_ws/install/viz/lib/viz/visualize_joints.py", line 95, in <module>
+[visualize_joints.py-4]     main()
+[visualize_joints.py-4]     ~~~~^^
+[visualize_joints.py-4]   File "/home/erhell/ros_ws/install/viz/lib/viz/visualize_joints.py", line 89, in main
+[visualize_joints.py-4]     rclpy.spin(node)
+[visualize_joints.py-4]     ~~~~~~~~~~^^^^^^
+[visualize_joints.py-4]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/__init__.py", line 247, in spin
+[visualize_joints.py-4]     executor.spin_once()
+[visualize_joints.py-4]     ~~~~~~~~~~~~~~~~~~^^
+[visualize_joints.py-4]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 926, in spin_once
+[visualize_joints.py-4]     self._spin_once_impl(timeout_sec)
+[visualize_joints.py-4]     ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+[visualize_joints.py-4]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 907, in _spin_once_impl
+[visualize_joints.py-4]     handler, entity, node = self.wait_for_ready_callbacks(
+[visualize_joints.py-4]                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+[visualize_joints.py-4]         timeout_sec, None, wait_condition)
+[visualize_joints.py-4]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[visualize_joints.py-4]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 877, in wait_for_ready_callbacks
+[visualize_joints.py-4]     return next(self._cb_iter)
+[visualize_joints.py-4]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 781, in _wait_for_ready_callbacks
+[visualize_joints.py-4]     wait_set.wait(timeout_nsec)
+[visualize_joints.py-4]     ~~~~~~~~~~~~~^^^^^^^^^^^^^^
+[visualize_joints.py-4] KeyboardInterrupt
+[visualize_joints.py-2] Reading hand scheme from /home/erhell/ros_ws/install/viz/share/viz/models/orcahand_v2/scheme_orcahand_v2.yaml
+[visualize_joints.py-2] Joint names: ['wrist', 'thumb_cmc', 'thumb_abd', 'thumb_mcp', 'thumb_dip', 'index_abd', 'index_mcp', 'index_pip', 'middle_abd', 'middle_mcp', 'middle_pip', 'ring_abd', 'ring_mcp', 'ring_pip', 'pinky_abd', 'pinky_mcp', 'pinky_pip']
+[visualize_joints.py-2] Traceback (most recent call last):
+[hand_control_node.py-1] Traceback (most recent call last):
+[hand_control_node.py-1]   File "/home/erhell/ros_ws/install/hand_control/lib/hand_control/hand_control_node.py", line 179, in <module>
+[hand_control_node.py-1]     main()
+[hand_control_node.py-1]     ~~~~^^
+[hand_control_node.py-1]   File "/home/erhell/ros_ws/install/hand_control/lib/hand_control/hand_control_node.py", line 174, in main
+[hand_control_node.py-1]     rclpy.spin(node)
+[hand_control_node.py-1]     ~~~~~~~~~~^^^^^^
+[hand_control_node.py-1]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/__init__.py", line 247, in spin
+[hand_control_node.py-1]     executor.spin_once()
+[hand_control_node.py-1]     ~~~~~~~~~~~~~~~~~~^^
+[hand_control_node.py-1]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 926, in spin_once
+[hand_control_node.py-1]     self._spin_once_impl(timeout_sec)
+[hand_control_node.py-1]     ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+[hand_control_node.py-1]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 907, in _spin_once_impl
+[hand_control_node.py-1]     handler, entity, node = self.wait_for_ready_callbacks(
+[hand_control_node.py-1]                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+[hand_control_node.py-1]         timeout_sec, None, wait_condition)
+[hand_control_node.py-1]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[hand_control_node.py-1]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 877, in wait_for_ready_callbacks
+[hand_control_node.py-1]     return next(self._cb_iter)
+[hand_control_node.py-1]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 781, in _wait_for_ready_callbacks
+[hand_control_node.py-1]     wait_set.wait(timeout_nsec)
+[hand_control_node.py-1]     ~~~~~~~~~~~~~^^^^^^^^^^^^^^
+[hand_control_node.py-1] KeyboardInterrupt
+[visualize_joints.py-2]   File "/home/erhell/ros_ws/install/viz/lib/viz/visualize_joints.py", line 95, in <module>
+[visualize_joints.py-2]     main()
+[visualize_joints.py-2]     ~~~~^^
+[visualize_joints.py-2]   File "/home/erhell/ros_ws/install/viz/lib/viz/visualize_joints.py", line 89, in main
+[visualize_joints.py-2]     rclpy.spin(node)
+[visualize_joints.py-2]     ~~~~~~~~~~^^^^^^
+[visualize_joints.py-2]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/__init__.py", line 247, in spin
+[visualize_joints.py-2]     executor.spin_once()
+[visualize_joints.py-2]     ~~~~~~~~~~~~~~~~~~^^
+[visualize_joints.py-2]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 926, in spin_once
+[visualize_joints.py-2]     self._spin_once_impl(timeout_sec)
+[visualize_joints.py-2]     ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+[visualize_joints.py-2]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 907, in _spin_once_impl
+[visualize_joints.py-2]     handler, entity, node = self.wait_for_ready_callbacks(
+[visualize_joints.py-2]                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+[visualize_joints.py-2]         timeout_sec, None, wait_condition)
+[visualize_joints.py-2]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[visualize_joints.py-2]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 877, in wait_for_ready_callbacks
+[visualize_joints.py-2]     return next(self._cb_iter)
+[visualize_joints.py-2]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 781, in _wait_for_ready_callbacks
+[visualize_joints.py-2]     wait_set.wait(timeout_nsec)
+[visualize_joints.py-2]     ~~~~~~~~~~~~~^^^^^^^^^^^^^^
+[visualize_joints.py-2] KeyboardInterrupt
+[ERROR] [visualize_joints.py-4]: process has died [pid 18911, exit code -2, cmd '/home/erhell/ros_ws/install/viz/lib/viz/visualize_joints.py --ros-args -r __node:=visualize_joints_motor_sensed -r __ns:=/right --params-file /tmp/launch_params_lmrem93u --params-file /tmp/launch_params_4gbac41k -r hand/policy_output:=hand/joint_position_from_motor -r joint_states:=motor_sensed/joint_states'].
+[ERROR] [visualize_joints.py-2]: process has died [pid 18907, exit code -2, cmd '/home/erhell/ros_ws/install/viz/lib/viz/visualize_joints.py --ros-args -r __node:=visualize_joints -r __ns:=/right --params-file /tmp/launch_params_4n8lq6fv --params-file /tmp/launch_params_qfguh01v --params-file /tmp/launch_params_x2mxirdr'].
+[ERROR] [hand_control_node.py-1]: process has died [pid 18905, exit code -2, cmd '/home/erhell/ros_ws/install/hand_control/lib/hand_control/hand_control_node.py --ros-args -r __node:=hand_controller_node -r __ns:=/right --params-file /tmp/launch_params_vbmqruu1 --params-file /tmp/launch_params_lav_blrg --params-file /tmp/launch_params_plmc9eh1 --params-file /tmp/launch_params_4pvupfwe --params-file /tmp/launch_params_ofmn2gg3'].
+[INFO] [robot_state_publisher-3]: process has finished cleanly [pid 18909]
+[INFO] [static_transform_publisher-6]: process has finished cleanly [pid 18915]
+[INFO] [robot_state_publisher-5]: process has finished cleanly [pid 18913]
+[ERROR] [rviz2-7]: process[rviz2-7] failed to terminate '5' seconds after receiving 'SIGINT', escalating to 'SIGTERM'
+[INFO] [rviz2-7]: sending signal 'SIGTERM' to process[rviz2-7]
+[rviz2-7] [INFO] [1794752452.540208356] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [rviz2-7]: process has finished cleanly [pid 18917]

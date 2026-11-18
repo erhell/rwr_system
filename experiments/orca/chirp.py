@@ -9,6 +9,14 @@ pinky side to -spread, and its own abduction to 0 while its MCP or PIP is swept.
 go to -spread (away from the thumb). The other joints move to this pose first, and only then the swept joint to the
 start of the chirp, so it always has room to move. The pose of every sweep is saved in metadata.json
 (hold_poses_deg), and faive_lab's chirp_characterization.py holds the simulated hand the same way.
+
+Servo settings (2026-11-15): --servo-acc sets the ACC register (0..254, 0 = no ramp) and --kp-scale multiplies the
+position-loop gain KP of ALL motors, after the hand reached its start pose; both are read back and saved in
+metadata.json (servo_settings: what the sweeps ran with; servo_settings_before / _after_restore), and set back to
+the values read before (ACC 150, the motors' own KP) at the end, also after Ctrl+C or an error. orca_core rewrites the
+ACC at every start but never KP: if the restore fails, power-cycle the hand. --read-servo only connects and prints
+every motor's ACC, goal speed, KP / KD / KI and current limit (no motion). Every recording saves the settings it ran
+with. Pass --config as the ROS install path (the symlink); its calibration.yaml lies next to the symlink.
 """
 
 import argparse
@@ -72,9 +80,16 @@ def make_parser():
     parser.add_argument("--spread-deg", type=float, default=20.0,
                         help="Abduction of the other fingers away from the swept one (0: neutral pose).")
     parser.add_argument("--output-dir", type=Path, default=Path("logs/chirp_v2"))
+    parser.add_argument("--servo-acc", type=int, default=None,
+                        help="ACC register (0..254, 0 = no ramp) on all motors during the sweeps (default: orca_core's 150).")
+    parser.add_argument("--kp-scale", type=float, default=None,
+                        help="Multiply every motor's KP (read first) by this, rounded, at most 254 (0.5..2.0; default: "
+                             "the motors' own). Written back at the end.")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--execute", action="store_true", help="Connect and move real hardware.")
     mode.add_argument("--dry-run", action="store_true", help="Print the plan only (the default).")
+    mode.add_argument("--read-servo", action="store_true",
+                      help="Connect, print and save every motor's ACC, goal speed, KP/KD/KI and current limit; no motion.")
     return parser
 
 
@@ -94,6 +109,10 @@ def make_plan(args, config):
         raise ValueError("The experiment must contain at least two samples")
     if len(set(args.joints)) != len(args.joints):
         raise ValueError("Do not repeat joints in --joints")
+    if args.servo_acc is not None and not 0 <= args.servo_acc <= 254:
+        raise ValueError("--servo-acc must be 0..254 (0 = no ramp)")
+    if args.kp_scale is not None and not (math.isfinite(args.kp_scale) and 0.5 <= args.kp_scale <= 2.0):
+        raise ValueError("--kp-scale must be within 0.5..2.0")
 
     joint_ids = config["joint_ids"]
     if not joint_ids or len(set(joint_ids)) != len(joint_ids):
@@ -130,7 +149,7 @@ def make_plan(args, config):
                                  "use a smaller --spread-deg")
         hold_poses[joint] = pose
     return {
-        "config_path": str(args.config.resolve()),
+        "config_path": str(args.config.absolute()),
         "config": config,
         "joints": args.joints,
         "centers_deg": centers,
@@ -143,6 +162,8 @@ def make_plan(args, config):
         "sample_count_per_joint": len(sample_times(args)),
         "spread_deg": args.spread_deg,
         "hold_poses_deg": hold_poses,
+        "servo_acc_requested": args.servo_acc,
+        "kp_scale_requested": args.kp_scale,
     }
 
 
@@ -194,15 +215,92 @@ def collect_joint(hand, args, plan, joint, path, *, current=None, clock=time.mon
     return command
 
 
+def read_servo_settings(hand):
+    """Per joint, as the motors report them: ACC, goal speed, KP / KD / KI, goal-current limit (mA)."""
+    from orca_core.hardware.feetech_registers import HLS
+    profiles = hand.get_servo_profile()
+    gains = hand.get_servo_gains()
+    client = hand._motor_client
+    out = {}
+    for joint, mid in hand.config.joint_to_motor_map.items():
+        p, g = profiles.get(mid), gains.get(mid)
+        raw = None  # goal-current limit (register 44): only recorded, never changed here
+        if hasattr(client, "_read_word"):
+            with hand._motor_lock, client._bus_lock:
+                raw = client._read_word(mid, HLS.GOAL_CURRENT, "goal current")
+        out[joint] = {
+            "motor_id": int(mid),
+            "acc": None if p is None or p.acceleration_rad_s2 is None else round(p.acceleration_rad_s2 / HLS.ACC_SCALE_RAD_S2),
+            "goal_speed_rad_s": None if p is None else p.velocity_rad_s,
+            "kp": None if g is None else g.kp, "kd": None if g is None else g.kd, "ki": None if g is None else g.ki,
+            "current_limit_ma": None if raw is None else client.packet_handler.scs_tohost(raw, 15) * HLS.CURRENT_SCALE_MA,
+        }
+    return out
+
+
+def print_servo_settings(title, settings):
+    print(title)
+    for joint, s in settings.items():
+        print(f"  {joint:11s} motor {s['motor_id']:2d}: ACC {s['acc']}, KP {s['kp']}, KD {s['kd']}, KI {s['ki']}, "
+              f"current limit {s['current_limit_ma']} mA, goal speed {s['goal_speed_rad_s']}")
+
+
+# Hardware caps of the ACC register (read back 2026-11-15 13:17: the wrist's HLS3930 holds 250 when 254 is written; the
+# 16 finger motors, HLS3915, hold 254). A request above the cap is accepted at the cap and noted in metadata.json.
+ACC_CAP = {"wrist": 250}
+
+
+def apply_servo_settings(hand, args, before):
+    """Set --servo-acc / --kp-scale on all motors and check the read-back; returns what the motors hold now."""
+    from orca_core.hardware.feetech_registers import HLS
+    from orca_core.hardware.motor_client import ServoGains, ServoProfile
+    want_kp = {}
+    if args.kp_scale is not None:
+        for joint, s in before.items():
+            if s["kp"] is None:
+                raise RuntimeError(f"KP of {joint} could not be read: not changing any gain")
+            want_kp[joint] = min(254, int(round(s["kp"] * args.kp_scale)))
+    if args.servo_acc is not None:
+        hand.set_servo_profile({s["motor_id"]: ServoProfile(acceleration_rad_s2=args.servo_acc * HLS.ACC_SCALE_RAD_S2)
+                                for s in before.values()})
+    if want_kp:
+        hand.set_servo_gains({before[j]["motor_id"]: ServoGains(kp=kp) for j, kp in want_kp.items()})
+    now = read_servo_settings(hand)
+    want_acc = {j: min(args.servo_acc, ACC_CAP.get(j, 254)) for j in now} if args.servo_acc is not None else {}
+    capped = {j: a for j, a in want_acc.items() if a != args.servo_acc}
+    if capped:
+        print(f"note: ACC {args.servo_acc} requested, held at the motor's cap on {capped}")
+    bad = [j for j, s in now.items() if (want_acc and s["acc"] != want_acc[j]) or (want_kp and s["kp"] != want_kp[j])]
+    if bad:
+        raise RuntimeError(f"servo settings not taken by {bad}: {[now[j] for j in bad]}")
+    return now
+
+
+def restore_servo_settings(hand, before):
+    """Write back the ACC and KP read before the sweeps; returns the read-back (raises if it differs)."""
+    from orca_core.hardware.feetech_registers import HLS
+    from orca_core.hardware.motor_client import ServoGains, ServoProfile
+    hand.set_servo_profile({s["motor_id"]: ServoProfile(acceleration_rad_s2=s["acc"] * HLS.ACC_SCALE_RAD_S2)
+                            for s in before.values() if s["acc"] is not None})
+    hand.set_servo_gains({s["motor_id"]: ServoGains(kp=s["kp"]) for s in before.values() if s["kp"] is not None})
+    now = read_servo_settings(hand)
+    bad = [j for j in before if (now[j]["acc"], now[j]["kp"]) != (before[j]["acc"], before[j]["kp"])]
+    if bad:
+        raise RuntimeError(f"ACC / KP not restored on {bad}")
+    return now
+
+
 def run_hardware(args, plan, *, factory=None, clock=time.monotonic, sleep=time.sleep):
     if factory is None:
         # Preview/help work without orca_core, ROS or any serial access.
         from orca_core import load_hand
         factory = load_hand
 
-    hand = factory(config_path=str(args.config.resolve()))
+    # absolute(), not resolve(): the ROS install's config.yaml is a symlink and its calibration.yaml lies next to the link
+    hand = factory(config_path=str(args.config.absolute()))
     metadata = dict(plan, status="starting", csv_files=[])
     run_dir = None
+    servo_before = None  # set once the motors' own ACC / KP were read; restored in finally
     try:
         # init_joints() can auto-calibrate. Refuse to enter it without a complete
         # existing calibration: calibration is a separate, deliberate operation.
@@ -222,6 +320,15 @@ def run_hardware(args, plan, *, factory=None, clock=time.monotonic, sleep=time.s
                         run_id=stamp, started_at_utc=started_at.isoformat())
         (run_dir / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
         hand.init_joints(force_calibrate=False, move_to_neutral=True)
+        before = read_servo_settings(hand)
+        metadata["servo_settings_before"] = before
+        if args.servo_acc is not None or args.kp_scale is not None:
+            servo_before = before
+            metadata["servo_settings"] = apply_servo_settings(hand, args, before)
+        else:
+            metadata["servo_settings"] = before
+        print_servo_settings("Servo settings for the sweeps (read back):", metadata["servo_settings"])
+        (run_dir / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
         current = None
         for joint in args.joints:
             filename = (f"chirp_{joint}_{stamp}_ctrl{args.ctrl_freq:g}Hz_"
@@ -240,6 +347,14 @@ def run_hardware(args, plan, *, factory=None, clock=time.monotonic, sleep=time.s
         active_exception = sys.exc_info()[0] is not None
         cleanup_errors = []
         operations = []
+        if servo_before is not None and hand.is_connected():
+            try:
+                metadata["servo_settings_after_restore"] = restore_servo_settings(hand, servo_before)
+                print("ACC and KP set back to the values read before the sweeps")
+            except Exception as exc:
+                cleanup_errors.append(f"restore ACC / KP: {exc}")
+                print(f"WARNING: ACC / KP NOT restored ({exc}). POWER-CYCLE THE HAND before running anything else.",
+                      file=sys.stderr)
         if hand.is_connected():
             operations.append(("disable torque", hand.disable_torque))
         operations.append(("disconnect", hand.disconnect))
@@ -263,6 +378,26 @@ def run_hardware(args, plan, *, factory=None, clock=time.monotonic, sleep=time.s
     return run_dir
 
 
+def read_servo_only(args, *, factory=None):
+    """--read-servo: connect, read and print every motor's servo settings, save them as JSON; no motion, no torque change."""
+    if factory is None:
+        from orca_core import load_hand
+        factory = load_hand
+    hand = factory(config_path=str(args.config.absolute()))
+    ok, message = hand.connect(interactive=False)
+    if not ok:
+        raise RuntimeError(f"Could not connect: {message}")
+    try:
+        settings = read_servo_settings(hand)
+    finally:
+        hand.disconnect()
+    print_servo_settings("Servo settings (read from the motors, nothing changed):", settings)
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    path = args.output_dir / f"servo_settings_{datetime.now(timezone.utc):%Y%m%d_%H%M%S}.json"
+    path.write_text(json.dumps(settings, indent=2) + "\n")
+    print(f"saved {path}")
+
+
 def main(argv=None):
     parser = make_parser()
     args = parser.parse_args(argv)
@@ -272,6 +407,13 @@ def main(argv=None):
         plan = make_plan(args, config)
     except (OSError, ValueError, TypeError, KeyError, yaml.YAMLError) as exc:
         parser.error(str(exc))
+    if args.read_servo:
+        try:
+            read_servo_only(args)
+        except Exception as exc:
+            print(f"Reading the servo settings failed: {exc}", file=sys.stderr)
+            return 1
+        return 0
     print(json.dumps({key: value for key, value in plan.items() if key != "config"}, indent=2))
     if not args.execute:
         print("Preview only. Add --execute to connect and move the calibrated hand.")

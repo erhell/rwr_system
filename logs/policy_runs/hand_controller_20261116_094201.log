@@ -1,0 +1,661 @@
+[INFO] [launch]: All log files can be found below /home/erhell/.ros/log/2026-11-16-09-42-01-557463-erhell-QEMU-Virtual-Machine-11518
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [hand_control_node.py-1]: process started with pid [11557]
+[INFO] [visualize_joints.py-2]: process started with pid [11559]
+[INFO] [robot_state_publisher-3]: process started with pid [11561]
+[INFO] [visualize_joints.py-4]: process started with pid [11563]
+[INFO] [robot_state_publisher-5]: process started with pid [11565]
+[INFO] [static_transform_publisher-6]: process started with pid [11567]
+[INFO] [rviz2-7]: process started with pid [11569]
+[static_transform_publisher-6] [WARN] [1794818521.718307980] []: Old-style arguments are deprecated; see --help for new-style arguments
+[static_transform_publisher-6] [INFO] [1794818521.766961917] [static_transform_publisher_F1vefee68IIdhChi]: Spinning until stopped - publishing transform
+[static_transform_publisher-6] translation: ('0.000000', '0.000000', '0.000000')
+[static_transform_publisher-6] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+[static_transform_publisher-6] from 'hand_root' to 'right/motor_sensed/hand_root'
+[robot_state_publisher-3] [INFO] [1794818521.770996853] [right.robot_state_publisher]: Robot initialized
+[robot_state_publisher-5] [INFO] [1794818521.775497790] [right.motor_sensed.robot_state_publisher_motor_sensed]: Robot initialized
+[rviz2-7] Warning: Ignoring XDG_SESSION_TYPE=wayland on Gnome. Use QT_QPA_PLATFORM=wayland to run on Wayland anyway.
+[hand_control_node.py-1] [INFO] [1794818521.888330653] [right.hand_controller_node]: Hand Controller Node Started with hand: orca_v2
+[hand_control_node.py-1] [INFO] [1794818521.888480612] [right.hand_controller_node]: Hand Controller Node Started with chirality: right
+[visualize_joints.py-2] [INFO] [1794818521.901883175] [right.visualize_joints]: Subscribing to "hand/policy_output"
+[visualize_joints.py-2] [INFO] [1794818521.902034218] [right.visualize_joints]: Publishing to "/joint_states"
+[visualize_joints.py-4] [INFO] [1794818521.902993014] [right.visualize_joints_motor_sensed]: Subscribing to "hand/policy_output"
+[visualize_joints.py-4] [INFO] [1794818521.903124889] [right.visualize_joints_motor_sensed]: Publishing to "/joint_states"
+[rviz2-7] [INFO] [1794818521.984762023] [rviz2]: Stereo is NOT SUPPORTED
+[rviz2-7] [INFO] [1794818521.984814023] [rviz2]: OpenGl version: 4.5 (GLSL 4.5)
+[rviz2-7] [INFO] [1794818522.015023914] [rviz2]: Stereo is NOT SUPPORTED
+[hand_control_node.py-1] WARNING:orca_core.hardware_hand:feetech motors have no multi-turn mode: the wrist stays in 'current_based_position'. Its ROM (-65..35 deg) is only reachable within one turn of the motor's zero.
+[hand_control_node.py-1] [INFO] [1794818523.101904550] [right.hand_controller_node]: servo KP at start: wrist=32 thumb_cmc=32 thumb_abd=32 thumb_mcp=32 thumb_dip=32 index_abd=32 index_mcp=32 index_pip=32 middle_abd=32 middle_mcp=32 middle_pip=32 ring_abd=32 ring_mcp=32 ring_pip=32 pinky_abd=32 pinky_mcp=32 pinky_pip=32
+[hand_control_node.py-1] [INFO] [1794818523.112390391] [right.hand_controller_node]: motor current limit at start (mA): wrist=897 thumb_cmc=897 thumb_abd=897 thumb_mcp=897 thumb_dip=897 index_abd=897 index_mcp=897 index_pip=897 middle_abd=897 middle_mcp=897 middle_pip=897 ring_abd=897 ring_mcp=897 ring_pip=897 pinky_abd=897 pinky_mcp=897 pinky_pip=897
+[hand_control_node.py-1] /home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/qos.py:169: UserWarning: A zero depth with KEEP_LAST doesn't make sense; no data could be stored. This will be interpreted as SYSTEM_DEFAULT
+[hand_control_node.py-1]   warnings.warn(
+[hand_control_node.py-1] [INFO] [1794818729.839468013] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] [INFO] [1794818886.248982230] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] [INFO] [1794818921.697404182] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] [INFO] [1794818987.242876249] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794818996.894941934] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794819020.778035311] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 3: result=-6
+[hand_control_node.py-1] [INFO] [1794819046.456014670] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794819046.479814237] [right.hand_controller_node]: motor current limit (mA): wrist=994.5 thumb_cmc=994.5 thumb_abd=994.5 thumb_mcp=994.5 thumb_dip=994.5 index_abd=994.5 index_mcp=994.5 index_pip=994.5 middle_abd=994.5 middle_mcp=994.5 middle_pip=994.5 ring_abd=994.5 ring_mcp=994.5 ring_pip=994.5 pinky_abd=994.5 pinky_mcp=994.5 pinky_pip=994.5
+[hand_control_node.py-1] [INFO] [1794819052.610042232] [right.hand_controller_node]: motor current limit (mA): wrist=897 thumb_cmc=897 thumb_abd=897 thumb_mcp=897 thumb_dip=897 index_abd=897 index_mcp=897 index_pip=897 middle_abd=897 middle_mcp=897 middle_pip=897 ring_abd=897 ring_mcp=897 ring_pip=897 pinky_abd=897 pinky_mcp=897 pinky_pip=897
+[hand_control_node.py-1] [INFO] [1794819052.654159830] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794819059.694963279] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794819059.716090685] [right.hand_controller_node]: motor current limit (mA): wrist=994.5 thumb_cmc=994.5 thumb_abd=994.5 thumb_mcp=994.5 thumb_dip=994.5 index_abd=994.5 index_mcp=994.5 index_pip=994.5 middle_abd=994.5 middle_mcp=994.5 middle_pip=994.5 ring_abd=994.5 ring_mcp=994.5 ring_pip=994.5 pinky_abd=994.5 pinky_mcp=994.5 pinky_pip=994.5
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] [INFO] [1794819066.571987489] [right.hand_controller_node]: motor current limit (mA): wrist=897 thumb_cmc=897 thumb_abd=897 thumb_mcp=897 thumb_dip=897 index_abd=897 index_mcp=897 index_pip=897 middle_abd=897 middle_mcp=897 middle_pip=897 ring_abd=897 ring_mcp=897 ring_pip=897 pinky_abd=897 pinky_mcp=897 pinky_pip=897
+[hand_control_node.py-1] [INFO] [1794819066.628017130] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794819078.368894947] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794819082.263953883] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794819089.709988130] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794819096.917832549] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794819101.582866640] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794819107.507787720] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794819122.711753361] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794819122.779995326] [right.hand_controller_node]: servo KP: wrist=48 thumb_cmc=48 thumb_abd=48 thumb_mcp=48 thumb_dip=48 index_abd=48 index_mcp=48 index_pip=48 middle_abd=48 middle_mcp=48 middle_pip=48 ring_abd=48 ring_mcp=48 ring_pip=48 pinky_abd=48 pinky_mcp=48 pinky_pip=48
+[hand_control_node.py-1] [INFO] [1794819125.622194739] [right.hand_controller_node]: servo KP: wrist=32 thumb_cmc=32 thumb_abd=32 thumb_mcp=32 thumb_dip=32 index_abd=32 index_mcp=32 index_pip=32 middle_abd=32 middle_mcp=32 middle_pip=32 ring_abd=32 ring_mcp=32 ring_pip=32 pinky_abd=32 pinky_mcp=32 pinky_pip=32
+[hand_control_node.py-1] [INFO] [1794819125.672992037] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794819129.855001275] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794819129.897229449] [right.hand_controller_node]: servo KP: wrist=48 thumb_cmc=48 thumb_abd=48 thumb_mcp=48 thumb_dip=48 index_abd=48 index_mcp=48 index_pip=48 middle_abd=48 middle_mcp=48 middle_pip=48 ring_abd=48 ring_mcp=48 ring_pip=48 pinky_abd=48 pinky_mcp=48 pinky_pip=48
+[hand_control_node.py-1] [INFO] [1794819141.270939834] [right.hand_controller_node]: servo KP: wrist=32 thumb_cmc=32 thumb_abd=32 thumb_mcp=32 thumb_dip=32 index_abd=32 index_mcp=32 index_pip=32 middle_abd=32 middle_mcp=32 middle_pip=32 ring_abd=32 ring_mcp=32 ring_pip=32 pinky_abd=32 pinky_mcp=32 pinky_pip=32
+[hand_control_node.py-1] [INFO] [1794819141.326035682] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794819158.710879896] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794819168.369612315] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794819174.621581786] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794819180.948487371] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794819188.718205039] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794819198.595106793] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] [INFO] [1794819257.719948938] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794819274.780004745] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794819287.827857543] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794819294.166072016] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794819299.913986567] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794819309.221980560] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794819317.713572311] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794819327.744960972] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794819344.741605249] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794819345.252846931] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] [INFO] [1794819350.747009932] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] WARNING:root:Motor 2 not available in sync read
+[hand_control_node.py-1] WARNING:root:Motor 3 not available in sync read
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 17: result=-6
+[hand_control_node.py-1] [ERROR] [1794819364.589023066] [right.hand_controller_node]: Setting the servo acceleration failed: acceleration write to motor 1 failed: result=-6, error=0
+[hand_control_node.py-1] [INFO] [1794819366.333093244] [right.hand_controller_node]: servo ACC: wrist=? thumb_cmc=? thumb_abd=? thumb_mcp=? thumb_dip=? index_abd=? index_mcp=? index_pip=? middle_abd=? middle_mcp=? middle_pip=? ring_abd=? ring_mcp=? ring_pip=? pinky_abd=? pinky_mcp=? pinky_pip=?
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 17: result=-6
+[hand_control_node.py-1] [ERROR] [1794819369.044840840] [right.hand_controller_node]: Setting the servo acceleration failed: acceleration write to motor 1 failed: result=-6, error=0
+[hand_control_node.py-1] [INFO] [1794819370.777058193] [right.hand_controller_node]: servo ACC: wrist=? thumb_cmc=? thumb_abd=? thumb_mcp=? thumb_dip=? index_abd=? index_mcp=? index_pip=? middle_abd=? middle_mcp=? middle_pip=? ring_abd=? ring_mcp=? ring_pip=? pinky_abd=? pinky_mcp=? pinky_pip=?
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 1: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 2: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 3: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 4: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 5: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 6: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 7: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 8: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 9: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 10: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 11: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 12: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 13: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 14: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 15: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 16: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read velocity for motor 17: result=-6
+[hand_control_node.py-1] WARNING:root:Failed to read current for motor 17: result=-6
+[hand_control_node.py-1] [WARN] [1794819378.765629328] [right.hand_controller_node]: Emergency stop received, shutting down
+[hand_control_node.py-1] ERROR:root:Could not set torque disabled for IDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+[hand_control_node.py-1] ERROR:root:Could not set torque disabled for IDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+[hand_control_node.py-1] ERROR:root:Could not set torque disabled for IDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+[hand_control_node.py-1] ERROR:root:Could not set torque disabled for IDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+[hand_control_node.py-1] WARNING:orca_core.hardware_hand:Torque disable not acknowledged by motor IDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+[hand_control_node.py-1] ERROR:root:Could not set torque disabled for IDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+[rviz2-7] [INFO] [1794819575.479851930] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[visualize_joints.py-4] Reading hand scheme from /home/erhell/ros_ws/install/viz/share/viz/models/orcahand_v2/scheme_orcahand_v2.yaml
+[visualize_joints.py-4] Joint names: ['wrist', 'thumb_cmc', 'thumb_abd', 'thumb_mcp', 'thumb_dip', 'index_abd', 'index_mcp', 'index_pip', 'middle_abd', 'middle_mcp', 'middle_pip', 'ring_abd', 'ring_mcp', 'ring_pip', 'pinky_abd', 'pinky_mcp', 'pinky_pip']
+[hand_control_node.py-1] Traceback (most recent call last):
+[visualize_joints.py-4] Traceback (most recent call last):
+[hand_control_node.py-1]   File "/home/erhell/ros_ws/install/hand_control/lib/hand_control/hand_control_node.py", line 242, in <module>
+[hand_control_node.py-1]     main()
+[hand_control_node.py-1]     ~~~~^^
+[hand_control_node.py-1]   File "/home/erhell/ros_ws/install/hand_control/lib/hand_control/hand_control_node.py", line 237, in main
+[hand_control_node.py-1]     rclpy.spin(node)
+[hand_control_node.py-1]     ~~~~~~~~~~^^^^^^
+[hand_control_node.py-1]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/__init__.py", line 247, in spin
+[hand_control_node.py-1]     executor.spin_once()
+[hand_control_node.py-1]     ~~~~~~~~~~~~~~~~~~^^
+[hand_control_node.py-1]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 926, in spin_once
+[hand_control_node.py-1]     self._spin_once_impl(timeout_sec)
+[hand_control_node.py-1]     ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+[hand_control_node.py-1]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 907, in _spin_once_impl
+[hand_control_node.py-1]     handler, entity, node = self.wait_for_ready_callbacks(
+[hand_control_node.py-1]                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+[hand_control_node.py-1]         timeout_sec, None, wait_condition)
+[hand_control_node.py-1]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[hand_control_node.py-1]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 877, in wait_for_ready_callbacks
+[hand_control_node.py-1]     return next(self._cb_iter)
+[hand_control_node.py-1]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 785, in _wait_for_ready_callbacks
+[hand_control_node.py-1]     raise ExternalShutdownException()
+[visualize_joints.py-2] Reading hand scheme from /home/erhell/ros_ws/install/viz/share/viz/models/orcahand_v2/scheme_orcahand_v2.yaml
+[visualize_joints.py-2] Joint names: ['wrist', 'thumb_cmc', 'thumb_abd', 'thumb_mcp', 'thumb_dip', 'index_abd', 'index_mcp', 'index_pip', 'middle_abd', 'middle_mcp', 'middle_pip', 'ring_abd', 'ring_mcp', 'ring_pip', 'pinky_abd', 'pinky_mcp', 'pinky_pip']
+[hand_control_node.py-1] rclpy.executors.ExternalShutdownException
+[visualize_joints.py-4]   File "/home/erhell/ros_ws/install/viz/lib/viz/visualize_joints.py", line 95, in <module>
+[visualize_joints.py-4]     main()
+[visualize_joints.py-4]     ~~~~^^
+[visualize_joints.py-2] Traceback (most recent call last):
+[visualize_joints.py-4]   File "/home/erhell/ros_ws/install/viz/lib/viz/visualize_joints.py", line 89, in main
+[visualize_joints.py-4]     rclpy.spin(node)
+[visualize_joints.py-4]     ~~~~~~~~~~^^^^^^
+[visualize_joints.py-4]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/__init__.py", line 247, in spin
+[visualize_joints.py-4]     executor.spin_once()
+[visualize_joints.py-4]     ~~~~~~~~~~~~~~~~~~^^
+[visualize_joints.py-4]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 926, in spin_once
+[visualize_joints.py-4]     self._spin_once_impl(timeout_sec)
+[visualize_joints.py-4]     ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+[visualize_joints.py-4]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 907, in _spin_once_impl
+[visualize_joints.py-4]     handler, entity, node = self.wait_for_ready_callbacks(
+[visualize_joints.py-4]                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+[visualize_joints.py-4]         timeout_sec, None, wait_condition)
+[visualize_joints.py-4]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[visualize_joints.py-4]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 877, in wait_for_ready_callbacks
+[visualize_joints.py-4]     return next(self._cb_iter)
+[visualize_joints.py-4]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 785, in _wait_for_ready_callbacks
+[visualize_joints.py-4]     raise ExternalShutdownException()
+[visualize_joints.py-4] rclpy.executors.ExternalShutdownException
+[visualize_joints.py-2]   File "/home/erhell/ros_ws/install/viz/lib/viz/visualize_joints.py", line 95, in <module>
+[visualize_joints.py-2]     main()
+[visualize_joints.py-2]     ~~~~^^
+[visualize_joints.py-2]   File "/home/erhell/ros_ws/install/viz/lib/viz/visualize_joints.py", line 89, in main
+[visualize_joints.py-2]     rclpy.spin(node)
+[visualize_joints.py-2]     ~~~~~~~~~~^^^^^^
+[visualize_joints.py-2]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/__init__.py", line 247, in spin
+[visualize_joints.py-2]     executor.spin_once()
+[visualize_joints.py-2]     ~~~~~~~~~~~~~~~~~~^^
+[visualize_joints.py-2]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 926, in spin_once
+[visualize_joints.py-2]     self._spin_once_impl(timeout_sec)
+[visualize_joints.py-2]     ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+[visualize_joints.py-2]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 907, in _spin_once_impl
+[visualize_joints.py-2]     handler, entity, node = self.wait_for_ready_callbacks(
+[visualize_joints.py-2]                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+[visualize_joints.py-2]         timeout_sec, None, wait_condition)
+[visualize_joints.py-2]         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[visualize_joints.py-2]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 877, in wait_for_ready_callbacks
+[visualize_joints.py-2]     return next(self._cb_iter)
+[visualize_joints.py-2]   File "/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/executors.py", line 785, in _wait_for_ready_callbacks
+[visualize_joints.py-2]     raise ExternalShutdownException()
+[visualize_joints.py-2] rclpy.executors.ExternalShutdownException
+[ERROR] [visualize_joints.py-4]: process has died [pid 11563, exit code 1, cmd '/home/erhell/ros_ws/install/viz/lib/viz/visualize_joints.py --ros-args -r __node:=visualize_joints_motor_sensed -r __ns:=/right --params-file /tmp/launch_params_9f5n7nxk --params-file /tmp/launch_params_nic_ok8b -r hand/policy_output:=hand/joint_position_from_motor -r joint_states:=motor_sensed/joint_states'].
+[ERROR] [visualize_joints.py-2]: process has died [pid 11559, exit code 1, cmd '/home/erhell/ros_ws/install/viz/lib/viz/visualize_joints.py --ros-args -r __node:=visualize_joints -r __ns:=/right --params-file /tmp/launch_params_vaxco382 --params-file /tmp/launch_params_hal01esa --params-file /tmp/launch_params_t1p_tnel'].
+[ERROR] [hand_control_node.py-1]: process has died [pid 11557, exit code 1, cmd '/home/erhell/ros_ws/install/hand_control/lib/hand_control/hand_control_node.py --ros-args -r __node:=hand_controller_node -r __ns:=/right --params-file /tmp/launch_params_il0yv1ah --params-file /tmp/launch_params_8mdqqc59 --params-file /tmp/launch_params_3j8280og --params-file /tmp/launch_params_ro2vq66s --params-file /tmp/launch_params_knv36pxb'].
+[ERROR] [rviz2-7]: process has died [pid 11569, exit code -9, cmd '/home/erhell/micromamba/envs/rwr_faive_lab_env/lib/rviz2/rviz2 -d /home/erhell/ros_ws/install/viz/share/viz/config/rviz/orcahand_v2_right_minimal.rviz --ros-args -r __node:=rviz2'].
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [static_transform_publisher-6]: sending signal 'SIGINT' to process[static_transform_publisher-6]
+[INFO] [robot_state_publisher-5]: sending signal 'SIGINT' to process[robot_state_publisher-5]
+[INFO] [robot_state_publisher-3]: sending signal 'SIGINT' to process[robot_state_publisher-3]
+[static_transform_publisher-6] [INFO] [1794819588.772020550] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[robot_state_publisher-5] [INFO] [1794819588.772283342] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[robot_state_publisher-3] [INFO] [1794819588.772425051] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [static_transform_publisher-6]: process has finished cleanly [pid 11567]
+[INFO] [robot_state_publisher-5]: process has finished cleanly [pid 11565]
+[INFO] [robot_state_publisher-3]: process has finished cleanly [pid 11561]

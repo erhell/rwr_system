@@ -1,0 +1,88 @@
+[INFO] [launch]: All log files can be found below /home/erhell/.ros/log/2026-11-15-17-37-24-178326-erhell-QEMU-Virtual-Machine-54373
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [hand_control_node.py-1]: process started with pid [54404]
+[INFO] [visualize_joints.py-2]: process started with pid [54406]
+[INFO] [robot_state_publisher-3]: process started with pid [54408]
+[INFO] [visualize_joints.py-4]: process started with pid [54410]
+[INFO] [robot_state_publisher-5]: process started with pid [54412]
+[INFO] [static_transform_publisher-6]: process started with pid [54416]
+[INFO] [rviz2-7]: process started with pid [54422]
+[robot_state_publisher-3] [INFO] [1794760644.280700876] [right.robot_state_publisher]: Robot initialized
+[static_transform_publisher-6] [WARN] [1794760644.291703859] []: Old-style arguments are deprecated; see --help for new-style arguments
+[robot_state_publisher-5] [INFO] [1794760644.294039695] [right.motor_sensed.robot_state_publisher_motor_sensed]: Robot initialized
+[rviz2-7] Warning: Ignoring XDG_SESSION_TYPE=wayland on Gnome. Use QT_QPA_PLATFORM=wayland to run on Wayland anyway.
+[static_transform_publisher-6] [INFO] [1794760644.298967197] [static_transform_publisher_XF6Wuuwx2KS3TuXY]: Spinning until stopped - publishing transform
+[static_transform_publisher-6] translation: ('0.000000', '0.000000', '0.000000')
+[static_transform_publisher-6] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+[static_transform_publisher-6] from 'hand_root' to 'right/motor_sensed/hand_root'
+[hand_control_node.py-1] [INFO] [1794760644.413642576] [right.hand_controller_node]: Hand Controller Node Started with hand: orca_v2
+[hand_control_node.py-1] [INFO] [1794760644.414026819] [right.hand_controller_node]: Hand Controller Node Started with chirality: right
+[visualize_joints.py-2] [INFO] [1794760644.454686058] [right.visualize_joints]: Subscribing to "hand/policy_output"
+[visualize_joints.py-2] [INFO] [1794760644.455057302] [right.visualize_joints]: Publishing to "/joint_states"
+[rviz2-7] [INFO] [1794760644.468623284] [rviz2]: Stereo is NOT SUPPORTED
+[rviz2-7] [INFO] [1794760644.468667700] [rviz2]: OpenGl version: 4.5 (GLSL 4.5)
+[visualize_joints.py-4] [INFO] [1794760644.468877821] [right.visualize_joints_motor_sensed]: Subscribing to "hand/policy_output"
+[visualize_joints.py-4] [INFO] [1794760644.469006944] [right.visualize_joints_motor_sensed]: Publishing to "/joint_states"
+[rviz2-7] [INFO] [1794760644.487011186] [rviz2]: Stereo is NOT SUPPORTED
+[hand_control_node.py-1] WARNING:orca_core.hardware_hand:feetech motors have no multi-turn mode: the wrist stays in 'current_based_position'. Its ROM (-65..35 deg) is only reachable within one turn of the motor's zero.
+[hand_control_node.py-1] [INFO] [1794760645.416842762] [right.hand_controller_node]: servo KP at start: wrist=32 thumb_cmc=32 thumb_abd=32 thumb_mcp=32 thumb_dip=32 index_abd=32 index_mcp=32 index_pip=32 middle_abd=32 middle_mcp=32 middle_pip=32 ring_abd=32 ring_mcp=32 ring_pip=32 pinky_abd=32 pinky_mcp=32 pinky_pip=32
+[hand_control_node.py-1] [INFO] [1794760645.426072150] [right.hand_controller_node]: motor current limit at start (mA): wrist=897 thumb_cmc=897 thumb_abd=897 thumb_mcp=897 thumb_dip=897 index_abd=897 index_mcp=897 index_pip=897 middle_abd=897 middle_mcp=897 middle_pip=897 ring_abd=897 ring_mcp=897 ring_pip=897 pinky_abd=897 pinky_mcp=897 pinky_pip=897
+[hand_control_node.py-1] /home/erhell/micromamba/envs/rwr_faive_lab_env/lib/python3.14/site-packages/rclpy/qos.py:169: UserWarning: A zero depth with KEEP_LAST doesn't make sense; no data could be stored. This will be interpreted as SYSTEM_DEFAULT
+[hand_control_node.py-1]   warnings.warn(
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] [INFO] [1794761281.261810999] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794761311.376738295] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794761320.201692847] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] WARNING:root:Motor 4 reports 0x02 after sync read: [ServoStatus] Angle sen error!
+[hand_control_node.py-1] [INFO] [1794761391.713566854] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 1: result=-7
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 1: result=-7
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 1: result=-7
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] WARNING:root:Failed to read position for motor 1: result=-7
+[hand_control_node.py-1] [INFO] [1794762619.429998224] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794762649.486121086] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794762655.392299842] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794762694.024497987] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794762699.481507293] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794762740.571525129] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794762742.327492430] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794762751.943172544] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794762767.655083698] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794762812.149318635] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794762815.382569000] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794762886.563618119] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] [INFO] [1794762908.422638259] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794762935.556799176] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794762940.537831203] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] WARNING:root:Sync read failed, falling back to individual reads
+[hand_control_node.py-1] [INFO] [1794762982.051625179] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794762992.414287378] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794762992.481442983] [right.hand_controller_node]: servo KP: wrist=48 thumb_cmc=48 thumb_abd=48 thumb_mcp=48 thumb_dip=48 index_abd=48 index_mcp=48 index_pip=48 middle_abd=48 middle_mcp=48 middle_pip=48 ring_abd=48 ring_mcp=48 ring_pip=48 pinky_abd=48 pinky_mcp=48 pinky_pip=48
+[hand_control_node.py-1] [INFO] [1794763018.182467718] [right.hand_controller_node]: servo KP: wrist=32 thumb_cmc=32 thumb_abd=32 thumb_mcp=32 thumb_dip=32 index_abd=32 index_mcp=32 index_pip=32 middle_abd=32 middle_mcp=32 middle_pip=32 ring_abd=32 ring_mcp=32 ring_pip=32 pinky_abd=32 pinky_mcp=32 pinky_pip=32
+[hand_control_node.py-1] [INFO] [1794763018.232691860] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794763026.844440882] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794763050.598627265] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794763060.430416883] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794763110.257104381] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794763115.396143571] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794763122.594283468] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794763184.415503739] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794763189.326523685] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150
+[hand_control_node.py-1] [INFO] [1794763196.442572889] [right.hand_controller_node]: servo ACC: wrist=250 thumb_cmc=254 thumb_abd=254 thumb_mcp=254 thumb_dip=254 index_abd=254 index_mcp=254 index_pip=254 middle_abd=254 middle_mcp=254 middle_pip=254 ring_abd=254 ring_mcp=254 ring_pip=254 pinky_abd=254 pinky_mcp=254 pinky_pip=254
+[hand_control_node.py-1] [INFO] [1794763407.370497034] [right.hand_controller_node]: servo ACC: wrist=150 thumb_cmc=150 thumb_abd=150 thumb_mcp=150 thumb_dip=150 index_abd=150 index_mcp=150 index_pip=150 middle_abd=150 middle_mcp=150 middle_pip=150 ring_abd=150 ring_mcp=150 ring_pip=150 pinky_abd=150 pinky_mcp=150 pinky_pip=150

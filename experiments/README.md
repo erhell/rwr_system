@@ -20,7 +20,8 @@ Useful parameters (add each as `-p name:=value`):
 | Parameter | Default | Meaning |
 |---|---|---|
 | `dry_run` | `false` | `true`: compute and log actions, but do not command the hand |
-| `goal_ang_vel` | `1.0` | commanded spin speed about z in rad/s; the sign sets the direction |
+| `goal_ang_vel` | `1.0` | commanded spin speed in rad/s about `goal_axis`; the sign sets the direction (about z: negative = clockwise seen from above) |
+| `goal_axis` | `z` | spin axis: `z` (vertical); `x` (across the palm) / `y` (along the fingers) only for models trained on all axes (r100xyz), refused for the others |
 | `action_alpha` | `-1` | moving average of the joint commands; `-1` takes it from the `deploy_meta.json` next to the policy (r29-r32: 0.3, earlier: 0.2; 0.2 without one). Also a `cube_spin_v2.launch.py` argument |
 | `goal_flip_period_s` | `0.0` | if > 0, flip the spin direction every this many seconds |
 | `csv_log_path` | `""` | if set, log observations, joint commands and the cube pose to this CSV file |
@@ -32,6 +33,12 @@ Useful parameters (add each as `-p name:=value`):
 
 The joint limits, observation order and scales in the script must match the faive_lab task (`orca_v2_repose_env_cfg.py`).
 
+**Per-model low-level settings (r60+):** the node reads the action filter (moving average or Butterworth), the servo
+ACC per joint and the trained commands from the policy's `deploy_meta.json`, prints them at startup, sets the ACC on
+the hand through hand_control_node (`/right/hand/set_servo_acc`, read back on `/right/hand/servo_acc`), refuses to
+command the hand if that fails, and sets 150 again at the end. Which model needs what, and why:
+[docs/low_level_control.md](../docs/low_level_control.md).
+
 ### Spin panel (web page for test series)
 
 `rl_inference/spin_panel.py` starts the policy runs from a local web page and records what you measure on the hand.
@@ -39,8 +46,8 @@ With the hand controller running (step 1 above), in a second terminal:
 ```bash
 python rl_inference/spin_panel.py        # then open http://localhost:8765
 ```
-Pick the model, speed (1.0 / 1.3 / 1.6 / 2.0 or any), direction (CCW / CW / flip), run time, the clip and fixed-wrist
-options, Start; afterwards type in the measured speed (or count turns), drops and a note. A grid shows which
+Pick the model, speed (1.0 / 1.3 / 1.6 / 2.0 or any), direction (CCW / CW / flip), spin axis (z; x / y only for
+r100xyz), run time, the clip and fixed-wrist options, Start; afterwards type in the measured speed (or count turns), drops and a note. A grid shows which
 combinations are done. Every run logs its CSV to `logs/policy_runs/` and the measurements go to
 `logs/policy_runs/real_hand_results.csv`. The models and their run folders are listed in `MODELS` at the top of the
 script. The same from the terminal: `source rl_inference/spin.zsh`, then `spin <model> <speed> [ccw|cw|flip] [real]`

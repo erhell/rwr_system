@@ -14,12 +14,20 @@ Every 1/policy_hz seconds:
        joint_vel       joint velocities * 0.2
        object_pos      cube position in the simulation's frame (only for a policy trained with the cube pose)
        object_quat     cube orientation (w, x, y, z) in the simulation's frame (idem)
-       goal_command    [0, 0, -0.05, 0, 0, angular velocity about z]
+       goal_command    [0, 0, -0.05, angular velocity about x, y, z]: only the goal_axis component is non-zero (z unless
+                       goal_axis is set; x / y only for models trained on all axes, r100xyz)
        last_action     the policy's previous raw output
        last_joint_cmd  the previous joint position command (radians)
-3. Run the policy, map its output onto the joint limits and smooth it with the same moving average as the simulation
-   (target = alpha * new + (1 - alpha) * previous)
+3. Run the policy, map its output onto the joint limits and smooth it with the same filter as the simulation: the
+   moving average (target = alpha * new + (1 - alpha) * previous), or for models whose deploy_meta.json has
+   action_filter "butter2" (r60, r61) the 2nd-order Butterworth low-pass with its coefficients
 4. Publish the joint position command on /right/hand/policy_output, which hand_control_node executes (unless dry_run)
+
+Servo profile: before the first step the node sets the servos' ACC register to what the model was trained with
+(deploy_meta.json servo_profile, r60+: 254 on some joints) through hand_control_node's /right/hand/set_servo_acc, waits
+until /right/hand/servo_acc reports it back and sets 150 again on exit. Models without a servo_profile get 150 on all
+joints (orca_core's default, what they always ran with). A model with a servo_profile refuses to command the hand when
+the controller cannot confirm it; the others run anyway, as before.
 
 Subtask 2 (exteroception): every step the node also reads the cube pose from TF (hand_root -> cube, published by
 cube_spin_v2.launch.py and cube_detection_node) and converts it to object_pos / object_quat as in the simulation. The
@@ -41,6 +49,9 @@ Usage (hand driver running, e.g. `ros2 launch hand_control orcahand_v2_controlle
 """
 
 import csv
+import json
+import signal
+import time
 from camera_feedback import CubeDetectionHistory, deploy_meta_action_alpha, load_camera_contract
 from pathlib import Path
 
@@ -51,6 +62,8 @@ import tf2_ros
 import torch
 import yaml
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from rclpy.signals import SignalHandlerOptions
 from rclpy.time import Time
 from scipy.spatial.transform import Rotation
 from std_msgs.msg import Float32MultiArray
@@ -87,6 +100,29 @@ CUBE_POSE_DIM = 3 + 4               # object_pos and object_quat from the camera
 CUBE_DETECTION_DIM = 3 + 4 + 1      # object_pos, object_quat and the detection's age, per frame (r26)
 NO_DETECTION = np.array([0.0] * CUBE_POSE_DIM + [1.0], dtype=np.float32)
 MAX_CUBE_FRAMES = 5
+DEFAULT_SERVO_ACC = 150.0  # orca_core's ACC register default: every model without a servo_profile ran with it
+# Hardware caps of the ACC register (read back 2026-11-15 13:17 with experiments/orca/chirp.py: the wrist's HLS3930 holds
+# 250 when 254 is written; the 16 finger motors, HLS3915, hold 254). A model's ACC above a cap is set and checked at the
+# cap (r100*: 254 on the wrist -> 250, 1.6 % less ramp on a joint the node holds still); every other value must match.
+SERVO_ACC_CAP = {"wrist": 250.0}
+# Position-loop gain KP (register 50, 2026-11-15): 32 is the motors' own value (read on all 17) and what every model
+# without servo_profile.kp in its deploy_meta.json ran with; 48 = the KP 48 recording / fit (r103, deployment variant
+# r60e_max_acc_kp48). orca_core never rewrites KP, so the node checks it for EVERY model and sets 32 after a run that
+# changed it. Same range as hand_controller_v2.py.
+DEFAULT_SERVO_KP = 32
+MIN_SERVO_KP, MAX_SERVO_KP = 16, 64
+# Motor goal-current limit (register 44, 2026-11-15): 900 mA = orca_core's default and what every model without
+# servo_profile.max_current_ma ran with; r104: 1000. The register counts 6.5 mA, rounded down (900 -> 897,
+# 1000 -> 994.5). Checked for every model, set back to 900 after a run that changed it. Same range as
+# hand_controller_v2.py.
+DEFAULT_MAX_CURRENT_MA = 900.0
+CURRENT_UNIT_MA = 6.5
+MIN_MAX_CURRENT_MA, MAX_MAX_CURRENT_MA = 300.0, 1000.0
+
+
+def held_current_ma(requested_ma):
+    """What register 44 holds for a requested limit (orca_core rounds down to 6.5 mA units)."""
+    return int(requested_ma / CURRENT_UNIT_MA) * CURRENT_UNIT_MA
 
 # The simulation observes the cube in its world frame (mdp.root_pos_w), so the cube pose is converted from hand_root
 # to that frame: robot init_state pos (0.0004, 0.1512, -0.0187), rot (w, x, y, z) (-0.2607, 0.9654, 0, 0) of the root
@@ -115,6 +151,10 @@ class PolicyInferenceNodeV2(Node):
         self.declare_parameter("velocity_obs_scale", 0.2)  # joint_vel observation scale in the task
         self.declare_parameter("goal_ang_vel", 1.0)        # rad/s about z; trained on |w| in [0.9, 1.5] (either sign = direction)
         self.declare_parameter("goal_flip_period_s", 0.0)  # > 0: flip the spin direction every this many seconds
+        # axis of goal_ang_vel (2026-11-15): the simulation's world axes, z up (vertical; negative = clockwise seen from
+        # above), y along the fingers, x across the palm. x / y only for models trained on all axes (deploy_meta.json
+        # command axis_mode "principal": r100xyz); the node refuses them for the z-only models
+        self.declare_parameter("goal_axis", "z")
         # false (default): the last action is fed back unclipped, as this node did before 2026-11-11; the policies spun
         # the cube faster on the real hand that way (values up to ~2.5 that the task never gives them). true: clipped to
         # [-1, 1] like the training (RslRlVecEnvWrapper), as from 2026-11-11 to 11-13. Joint targets are clipped either way
@@ -148,6 +188,10 @@ class PolicyInferenceNodeV2(Node):
             self.action_alpha = deploy_meta_action_alpha(self.policy_ckpt_path)
         self.velocity_obs_scale = float(self.get_parameter("velocity_obs_scale").value)
         self.goal_flip_period_s = float(self.get_parameter("goal_flip_period_s").value)
+        self.goal_axis = str(self.get_parameter("goal_axis").value).strip().lower()
+        if self.goal_axis not in ("x", "y", "z"):
+            raise ValueError(f"goal_axis must be x, y or z, got {self.goal_axis!r}")
+        self.goal_index = 3 + "xyz".index(self.goal_axis)  # position in goal_command
         self.clip_last_action = bool(self.get_parameter("clip_last_action").value)
         self.run_seconds = float(self.get_parameter("run_seconds").value)
         self.fix_wrist = bool(self.get_parameter("fix_wrist").value)
@@ -222,10 +266,72 @@ class PolicyInferenceNodeV2(Node):
             f"Loaded policy {self.policy_ckpt_path} ({self.obs_dim} observations -> 17 actions), {inputs}"
         )
 
+        # ========== Action filter and servo profile of the training task (deploy_meta.json, r60+) ==========
+        meta_path = Path(self.policy_ckpt_path).with_name("deploy_meta.json")
+        meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
+        action_filter = meta.get("action_filter") or {"type": "ema"}
+        self.butter = None  # (b, a) of the Butterworth filter, None: moving average
+        if action_filter.get("type") == "butter2":
+            b = [float(v) for v in action_filter["b"]]
+            a = [float(v) for v in action_filter["a"]]
+            if len(b) != 3 or len(a) != 3 or abs(a[0] - 1.0) > 1e-9:
+                raise ValueError(f"deploy_meta.json action_filter: expected b[3] and a[3] with a[0] = 1, got {action_filter}")
+            self.butter = (b, a)
+            filter_text = f"Butterworth 2nd order {action_filter.get('cutoff_hz', '?')} Hz, b {np.round(b, 4)} a {np.round(a, 4)}"
+        elif action_filter.get("type") == "ema":
+            filter_text = f"moving average alpha {self.action_alpha}"
+        else:
+            raise ValueError(f"deploy_meta.json action_filter type {action_filter.get('type')!r} is not supported")
+        servo_profile = meta.get("servo_profile")
+        if servo_profile:
+            acc = servo_profile.get("acc") or {}
+            missing = [j for j in self.joint_order if j not in acc]
+            if missing:
+                raise ValueError(f"deploy_meta.json servo_profile has no ACC for {missing}")
+            self.servo_acc = np.array([float(acc[j]) for j in self.joint_order])
+            self.servo_profile_name = servo_profile.get("name", "from deploy_meta.json")
+        else:
+            self.servo_acc = np.full(len(self.joint_order), DEFAULT_SERVO_ACC)
+            self.servo_profile_name = None
+        if not np.all((self.servo_acc >= 0) & (self.servo_acc <= 254)):
+            raise ValueError(f"servo ACC values must be 0..254, got {self.servo_acc.tolist()}")
+        # what the motors can hold: the model's ACC, capped where the hardware caps it
+        self.servo_acc_trained = self.servo_acc.copy()
+        self.servo_acc = np.array([min(a, SERVO_ACC_CAP.get(j, 254.0)) for j, a in zip(self.joint_order, self.servo_acc)])
+        self.servo_acc_capped = {j: (t, a) for j, t, a in zip(self.joint_order, self.servo_acc_trained, self.servo_acc)
+                                 if t != a}
+        self.servo_acc_set = False  # true once this node changed the hand's ACC (restored on exit)
+        self.servo_kp = int((servo_profile or {}).get("kp", DEFAULT_SERVO_KP))
+        if not MIN_SERVO_KP <= self.servo_kp <= MAX_SERVO_KP:
+            raise ValueError(f"deploy_meta.json servo_profile.kp {self.servo_kp} outside {MIN_SERVO_KP}..{MAX_SERVO_KP}")
+        self.servo_kp_set = False   # true once this node changed the hand's KP (set back to 32 on exit)
+        self.max_current_ma = float((servo_profile or {}).get("max_current_ma", DEFAULT_MAX_CURRENT_MA))
+        if not MIN_MAX_CURRENT_MA <= self.max_current_ma <= MAX_MAX_CURRENT_MA:
+            raise ValueError(f"deploy_meta.json servo_profile.max_current_ma {self.max_current_ma} outside "
+                             f"{MIN_MAX_CURRENT_MA:g}..{MAX_MAX_CURRENT_MA:g}")
+        self.max_current_set = False  # true once this node changed the motors' current limit (900 again on exit)
+        self.servo_ready = False    # set by setup_servo_profile(); no policy step before
+        self.done = False           # set when run_seconds is over
+
         # ========== ROS2 Publishers and Subscribers ==========
         self.hand_pub = self.create_publisher(Float32MultiArray, self.get_parameter("command_topic").value, 10)
         self.create_subscription(Float32MultiArray, "/right/hand/joint_position_from_motor", self.hand_pos_callback, 10)
         self.create_subscription(Float32MultiArray, "/right/hand/joint_velocity_from_motor", self.hand_vel_callback, 10)
+        self.servo_acc_state = None  # ACC per joint as hand_control_node last read it back (hand config order)
+        self.servo_acc_pub = self.create_publisher(Float32MultiArray, "/right/hand/set_servo_acc", 10)
+        self.create_subscription(
+            Float32MultiArray, "/right/hand/servo_acc", self.servo_acc_callback,
+            QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL, reliability=ReliabilityPolicy.RELIABLE))
+        self.max_current_state = None  # current limit per joint (mA) as hand_control_node last read it back
+        self.max_current_pub = self.create_publisher(Float32MultiArray, "/right/hand/set_max_current_ma", 10)
+        self.create_subscription(
+            Float32MultiArray, "/right/hand/max_current_ma", self.max_current_callback,
+            QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL, reliability=ReliabilityPolicy.RELIABLE))
+        self.servo_kp_state = None  # KP per joint as hand_control_node last read it back (hand config order)
+        self.servo_kp_pub = self.create_publisher(Float32MultiArray, "/right/hand/set_servo_kp", 10)
+        self.create_subscription(
+            Float32MultiArray, "/right/hand/servo_kp", self.servo_kp_callback,
+            QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL, reliability=ReliabilityPolicy.RELIABLE))
 
         # ========== TF2 Listener ==========
         self.tf_buffer = tf2_ros.Buffer()
@@ -242,8 +348,12 @@ class PolicyInferenceNodeV2(Node):
         self.current_joint_vel = None
         self.last_action_usd = np.zeros(17, dtype=np.float32)  # raw policy output, as the task's last_action
         self.last_joint_cmd_usd = None                          # set from the measured pose on the first step, as at a reset
-        self.goal_command = np.array([0.0, 0.0, -0.05, 0.0, 0.0, float(self.get_parameter("goal_ang_vel").value)],
-                                     dtype=np.float32)
+        self.goal_command = np.array([0.0, 0.0, -0.05, 0.0, 0.0, 0.0], dtype=np.float32)
+        self.goal_command[self.goal_index] = float(self.get_parameter("goal_ang_vel").value)
+        axis_mode = (meta.get("command") or {}).get("axis_mode", "per_axis")
+        if self.goal_axis != "z" and axis_mode != "principal":
+            raise ValueError(f"goal_axis {self.goal_axis}: this model was trained only about z (deploy_meta.json command "
+                             f"axis_mode {axis_mode!r}); x / y need a model trained on all axes (r100xyz)")
         self.start_time = None
         self.last_flip_time = None
         self.last_log_time = None
@@ -259,7 +369,16 @@ class PolicyInferenceNodeV2(Node):
 
         self.create_timer(1.0 / self.policy_hz, self.process_once)
         mode = "DRY RUN (not commanding the hand)" if self.dry_run else "COMMANDING THE HAND"
-        self.get_logger().info(f"Policy inference v2 running at {self.policy_hz} Hz, alpha {self.action_alpha}: {mode}")
+        self.get_logger().info(f"Policy inference v2 running at {self.policy_hz} Hz, {filter_text}: {mode}")
+        trained = meta.get("command") or {}
+        self.get_logger().info(
+            f"goal {self.goal_command[self.goal_index]:+.2f} rad/s about {self.goal_axis}"
+            + (" (clockwise seen from above)" if self.goal_axis == "z" and self.goal_command[5] < 0 else
+               " (counter-clockwise seen from above)" if self.goal_axis == "z" else "")
+            + f"; trained on: axis_mode {trained.get('axis_mode', 'per_axis (z)')}, "
+            + (f"speeds {trained.get('principal_speed_range')}" if trained.get("axis_mode") == "principal" else
+               f"max {trained.get('angular_vel_range', ['?'])[-1]} rad/s")
+            + (f", {100 * trained['negative_prob']:.0f} % clockwise" if trained.get("negative_prob") is not None else ""))
         self.get_logger().info("last action fed back " + ("clipped to [-1, 1] (as in training)" if self.clip_last_action
                                                            else "unclipped (as before 2026-11-11)"))
         if self.fix_wrist:
@@ -275,6 +394,191 @@ class PolicyInferenceNodeV2(Node):
             state = getattr(self.policy, name, None)
             if isinstance(state, torch.Tensor):
                 state.zero_()
+
+    # ========== servo profile (ACC register per joint) ==========
+    def servo_acc_callback(self, msg: Float32MultiArray):
+        self.servo_acc_state = np.array(msg.data, dtype=np.float64)
+
+    def acc_text(self, acc):
+        return " ".join(f"{j}={'?' if not np.isfinite(a) else int(a)}" for j, a in zip(self.joint_order, acc))
+
+    def acc_matches(self, wanted):
+        state = self.servo_acc_state
+        return state is not None and state.shape == wanted.shape and np.allclose(state, np.round(wanted), atol=0.5)
+
+    def spin_until(self, condition, timeout_s):
+        end = time.monotonic() + timeout_s
+        while not condition() and time.monotonic() < end:
+            rclpy.spin_once(self, timeout_sec=0.05)
+        return condition()
+
+    def send_servo_acc(self, wanted, timeout_s):
+        """Publish the ACC values until hand_control_node reports them back (True) or timeout_s passes (False)."""
+        end = time.monotonic() + timeout_s
+        while time.monotonic() < end:
+            if self.servo_acc_pub.get_subscription_count() > 0:
+                self.servo_acc_pub.publish(Float32MultiArray(data=[float(v) for v in wanted]))
+            if self.spin_until(lambda: self.acc_matches(wanted), min(1.0, max(0.0, end - time.monotonic()))):
+                return True
+        return False
+
+    def setup_servo_profile(self):
+        """Before the first step: set the ACC the model was trained with. Raises if a model with a servo_profile
+        cannot get it; models without one (150 everywhere) run anyway, as before this existed."""
+        wanted, name = self.servo_acc, self.servo_profile_name
+        for j, (trained, held) in self.servo_acc_capped.items():
+            self.get_logger().info(f"servo ACC {j}: the model's servo profile asks for {trained:g}, the motor holds at most {held:g} "
+                                   f"(hardware cap): set and checked at {held:g}")
+        label = f"servo profile '{name}'" if name else f"servo ACC {DEFAULT_SERVO_ACC:g} on all joints (no servo_profile)"
+        if not self.spin_until(lambda: self.servo_acc_state is not None, 3.0):
+            msg = ("hand_control_node does not report /right/hand/servo_acc (not running, or started before the "
+                   "servo-ACC code of 2026-11-15: restart it)")
+            if self.dry_run:
+                self.get_logger().warn(f"{msg}; dry run, the model needs {label}: {self.acc_text(wanted)}")
+            elif name:
+                raise RuntimeError(f"The model needs {label}, but {msg}. Not commanding the hand.")
+            else:
+                self.get_logger().warn(f"{msg}; running with the controller's ACC (150 unless changed)")
+        elif self.acc_matches(wanted):
+            self.get_logger().info(f"{label}: the hand already has it")
+        elif self.dry_run:
+            self.get_logger().warn(f"dry run: the model needs {label} ({self.acc_text(wanted)}), the hand has "
+                                   f"{self.acc_text(self.servo_acc_state)}; not changed")
+        else:
+            self.servo_acc_set = True
+            if self.send_servo_acc(wanted, 5.0):
+                self.get_logger().info(f"{label} set: {self.acc_text(wanted)}")
+            elif name:
+                raise RuntimeError(f"Could not set {label}: the hand reports {self.acc_text(self.servo_acc_state)}. "
+                                   "Not commanding the hand.")
+            else:
+                self.get_logger().warn(f"Could not confirm {label}: the hand reports "
+                                       f"{self.acc_text(self.servo_acc_state)}")
+        self.setup_servo_kp()
+        self.setup_max_current()
+        self.servo_ready = True
+
+    # ========== motor goal-current limit (register 44) ==========
+    def max_current_callback(self, msg: Float32MultiArray):
+        self.max_current_state = np.array(msg.data, dtype=np.float64)
+
+    def current_matches(self, requested_ma):
+        state, held = self.max_current_state, held_current_ma(requested_ma)
+        return (state is not None and state.shape == (len(self.joint_order),)
+                and bool(np.all(np.abs(state - held) < CURRENT_UNIT_MA / 2)))
+
+    def ma_text(self, ma):
+        return " ".join(f"{j}={'?' if not np.isfinite(m) else f'{m:g}'}" for j, m in zip(self.joint_order, ma))
+
+    def send_max_current(self, requested_ma, timeout_s):
+        """Publish the limit for all joints until hand_control_node reports it back (True) or timeout_s passes."""
+        end = time.monotonic() + timeout_s
+        while time.monotonic() < end:
+            if self.max_current_pub.get_subscription_count() > 0:
+                self.max_current_pub.publish(Float32MultiArray(data=[float(requested_ma)] * len(self.joint_order)))
+            if self.spin_until(lambda: self.current_matches(requested_ma), min(1.0, max(0.0, end - time.monotonic()))):
+                return True
+        return False
+
+    def setup_max_current(self):
+        """Before the first step: the model's current limit on all motors (900 mA unless its deploy_meta says
+        otherwise). Raises if it cannot be set; with a hand controller that does not report the limit only a model
+        that needs another limit refuses."""
+        wanted = self.max_current_ma
+        label = (f"motor current limit {wanted:g} mA (register holds {held_current_ma(wanted):g})"
+                 + (" (orca_core's default)" if wanted == DEFAULT_MAX_CURRENT_MA else " (this model's)"))
+        if not self.spin_until(lambda: self.max_current_state is not None, 3.0):
+            msg = ("hand_control_node does not report /right/hand/max_current_ma (started before the current-limit "
+                   "code of 2026-11-15: restart it)")
+            if self.dry_run:
+                self.get_logger().warn(f"{msg}; dry run, the model needs {label}")
+            elif wanted != DEFAULT_MAX_CURRENT_MA:
+                raise RuntimeError(f"The model needs {label}, but {msg}. Not commanding the hand.")
+            else:
+                self.get_logger().warn(f"{msg}: current limit not checked. The controller sets 900 mA at its start")
+            return
+        if self.current_matches(wanted):
+            self.get_logger().info(f"{label} on all joints: the hand already has it")
+        elif self.dry_run:
+            self.get_logger().warn(f"dry run: the model needs {label}, the hand has "
+                                   f"{self.ma_text(self.max_current_state)}; not changed")
+        else:
+            self.max_current_set = True
+            if self.send_max_current(wanted, 5.0):
+                self.get_logger().info(f"{label} set on all joints")
+            else:
+                raise RuntimeError(f"Could not set {label}: the hand reports {self.ma_text(self.max_current_state)} "
+                                   "(a motor's protection current may cap it). Not commanding the hand.")
+
+    # ========== servo position-loop gain KP (register 50) ==========
+    def servo_kp_callback(self, msg: Float32MultiArray):
+        self.servo_kp_state = np.array(msg.data, dtype=np.float64)
+
+    def kp_matches(self, kp):
+        state = self.servo_kp_state
+        return state is not None and state.shape == (len(self.joint_order),) and bool(np.all(np.abs(state - kp) < 0.5))
+
+    def send_servo_kp(self, kp, timeout_s):
+        """Publish KP for all joints until hand_control_node reports it back (True) or timeout_s passes (False)."""
+        end = time.monotonic() + timeout_s
+        while time.monotonic() < end:
+            if self.servo_kp_pub.get_subscription_count() > 0:
+                self.servo_kp_pub.publish(Float32MultiArray(data=[float(kp)] * len(self.joint_order)))
+            if self.spin_until(lambda: self.kp_matches(kp), min(1.0, max(0.0, end - time.monotonic()))):
+                return True
+        return False
+
+    def setup_servo_kp(self):
+        """Before the first step: the model's KP on all motors (32 unless its deploy_meta says otherwise). Raises if it
+        cannot be set; with a hand controller that does not report KP only a model that needs another KP refuses."""
+        wanted = self.servo_kp
+        label = f"servo KP {wanted}" + (" (the motors' own)" if wanted == DEFAULT_SERVO_KP else " (this model's)")
+        if not self.spin_until(lambda: self.servo_kp_state is not None, 3.0):
+            msg = ("hand_control_node does not report /right/hand/servo_kp (started before the KP code of 2026-11-15: "
+                   "restart it)")
+            if self.dry_run:
+                self.get_logger().warn(f"{msg}; dry run, the model needs {label}")
+            elif wanted != DEFAULT_SERVO_KP:
+                raise RuntimeError(f"The model needs {label}, but {msg}. Not commanding the hand.")
+            else:
+                self.get_logger().warn(f"{msg}: KP not checked. The motors hold 32 unless a KP run left another value "
+                                       "(power-cycle the hand if unsure)")
+            return
+        if self.kp_matches(wanted):
+            self.get_logger().info(f"{label} on all joints: the hand already has it")
+        elif self.dry_run:
+            self.get_logger().warn(f"dry run: the model needs {label}, the hand has {self.acc_text(self.servo_kp_state)}; "
+                                   "not changed")
+        else:
+            self.servo_kp_set = True
+            if self.send_servo_kp(wanted, 5.0):
+                self.get_logger().info(f"{label} set on all joints")
+            else:
+                raise RuntimeError(f"Could not set {label}: the hand reports {self.acc_text(self.servo_kp_state)}. "
+                                   "Not commanding the hand.")
+
+    def restore_servo_profile(self):
+        """After the run: 900 mA, KP 32 and ACC 150 on all joints again where this node changed them."""
+        if self.max_current_set:
+            if self.send_max_current(DEFAULT_MAX_CURRENT_MA, 2.0):
+                self.get_logger().info(f"motor current limit back to {DEFAULT_MAX_CURRENT_MA:g} mA on all joints")
+            else:
+                self.get_logger().error(f"Could not set the motor current limit back to {DEFAULT_MAX_CURRENT_MA:g} mA: "
+                                        "restart hand_control_node (it sets 900 mA at its start)")
+        if self.servo_kp_set:
+            if self.send_servo_kp(DEFAULT_SERVO_KP, 2.0):
+                self.get_logger().info(f"servo KP back to {DEFAULT_SERVO_KP} on all joints")
+            else:
+                self.get_logger().error(f"Could not set the servo KP back to {DEFAULT_SERVO_KP}: restart hand_control_node "
+                                        "and check its 'servo KP at start' line, or power-cycle the hand")
+        if not self.servo_acc_set:
+            return
+        default = np.full(len(self.joint_order), DEFAULT_SERVO_ACC)
+        if self.send_servo_acc(default, 2.0):
+            self.get_logger().info(f"servo ACC back to {DEFAULT_SERVO_ACC:g} on all joints")
+        else:
+            self.get_logger().error(f"Could not set the servo ACC back to {DEFAULT_SERVO_ACC:g}: restart "
+                                    "hand_control_node before running a model without a servo_profile elsewhere")
 
     def hand_pos_callback(self, msg: Float32MultiArray):
         self.current_joint_pos = float32_multiarray_to_numpy(msg)
@@ -308,6 +612,8 @@ class PolicyInferenceNodeV2(Node):
         return transform, Time.from_msg(tf_msg.header.stamp).nanoseconds * 1e-9
 
     def process_once(self):
+        if not self.servo_ready or self.done:
+            return
         if self.current_joint_pos is None or self.current_joint_vel is None:
             self.get_logger().info("Waiting for hand state...", throttle_duration_sec=2.0)
             return
@@ -331,16 +637,20 @@ class PolicyInferenceNodeV2(Node):
             # as at a reset in the task: the moving average starts from the current pose, last action is zero
             self.start_time = self.last_flip_time = self.last_log_time = now
             self.last_joint_cmd_usd = joint_pos_usd.copy()
+            # Butterworth states (last two inputs and outputs) at rest at the current pose, as at a reset in the task
+            self.bx1 = self.bx2 = self.by1 = self.by2 = joint_pos_usd.copy()
             self.reset_policy_memory()
         if self.run_seconds > 0 and now - self.start_time >= self.run_seconds:
-            # ends rclpy.spin() in main(), which then closes the CSV; the hand keeps the last command
+            # ends the loop in main(), which then restores the servo ACC and closes the CSV; the hand keeps the last
+            # command
             self.get_logger().info(f"Run time of {self.run_seconds:g} s over, stopping")
-            rclpy.shutdown()
+            self.done = True
             return
         if self.goal_flip_period_s > 0 and now - self.last_flip_time >= self.goal_flip_period_s:
-            self.goal_command[5] *= -1.0
+            self.goal_command[self.goal_index] *= -1.0
             self.last_flip_time = now
-            self.get_logger().info(f"Spin direction flipped: goal angular velocity {self.goal_command[5]:+.2f} rad/s")
+            self.get_logger().info(f"Spin direction flipped: goal angular velocity {self.goal_command[self.goal_index]:+.2f} "
+                                   f"rad/s about {self.goal_axis}")
 
         # === cube pose (Subtask 2) ===
         hand_T_cube, stamp = self.lookup_transform_from_tf(self.hand_frame, self.cube_frame)
@@ -412,12 +722,21 @@ class PolicyInferenceNodeV2(Node):
             action_usd = np.clip(action_usd, -1.0, 1.0)
         self.last_action_usd = action_usd
 
-        # === action processing, as the task's EMAJointPositionToLimitsAction ===
+        # === action processing, as the task's EMAJointPositionToLimitsAction / DelayedEMAJointPositionToLimitsAction ===
         target_usd = self.denormalize(np.clip(action_usd, -1.0, 1.0))
-        if self.fix_wrist:  # held still; the moving average below eases it there from the start pose
+        if self.fix_wrist:  # held still; the filter below eases it there from the start pose
             target_usd[self.wrist_idx] = np.deg2rad(self.fixed_wrist_deg)
-        target_usd = self.action_alpha * target_usd + (1.0 - self.action_alpha) * self.last_joint_cmd_usd
-        target_usd = np.clip(target_usd, self.limits_usd[:, 0], self.limits_usd[:, 1]).astype(np.float32)
+        if self.butter is None:
+            target_usd = self.action_alpha * target_usd + (1.0 - self.action_alpha) * self.last_joint_cmd_usd
+            target_usd = np.clip(target_usd, self.limits_usd[:, 0], self.limits_usd[:, 1]).astype(np.float32)
+        else:
+            # y_k = b0 x_k + b1 x_k-1 + b2 x_k-2 - a1 y_k-1 - a2 y_k-2, y clamped to the limits (and kept clamped)
+            (b0, b1, b2), (_, a1, a2) = self.butter
+            x = target_usd
+            y = b0 * x + b1 * self.bx1 + b2 * self.bx2 - a1 * self.by1 - a2 * self.by2
+            y = np.clip(y, self.limits_usd[:, 0], self.limits_usd[:, 1]).astype(np.float32)
+            self.bx2, self.bx1, self.by2, self.by1 = self.bx1, x, self.by1, y
+            target_usd = y
         self.last_joint_cmd_usd = target_usd
 
         if not self.dry_run:
@@ -441,17 +760,39 @@ class PolicyInferenceNodeV2(Node):
         super().destroy_node()
 
 
+def _interrupt(*_):
+    raise KeyboardInterrupt
+
+
 def main(args=None):
-    rclpy.init(args=args)
-    node = PolicyInferenceNodeV2()
+    # rclpy's own signal handler would shut ROS down at Ctrl+C before the servo ACC can be set back: handle SIGINT
+    # (Python's KeyboardInterrupt) and SIGTERM (the spin panel's second try) here instead
+    rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
+    signal.signal(signal.SIGINT, _interrupt)  # also when started with SIGINT ignored (background job of a script)
+    signal.signal(signal.SIGTERM, _interrupt)
+    node, code = None, 0
     try:
-        rclpy.spin(node)
+        node = PolicyInferenceNodeV2()
+        node.setup_servo_profile()
+        while rclpy.ok() and not node.done:
+            rclpy.spin_once(node, timeout_sec=0.1)
     except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         print("\nShutting down...")
+    except RuntimeError as e:  # the servo profile the model needs could not be set
+        print(f"\nERROR: {e}", flush=True)
+        code = 1
     finally:
-        node.destroy_node()
-        if rclpy.ok():  # a signal may already have shut the context down
+        if node is not None:
+            node.done = True  # no more policy steps while the restore below spins the node
+            try:
+                if rclpy.ok():
+                    node.restore_servo_profile()
+            except KeyboardInterrupt:
+                pass
+            node.destroy_node()
+        if rclpy.ok():
             rclpy.shutdown()
+    raise SystemExit(code)
 
 
 if __name__ == "__main__":

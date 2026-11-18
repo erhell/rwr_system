@@ -1,0 +1,68 @@
+[
+  [
+    "r103",
+    "2026-11-15_17-51-21_r103",
+    "New 11-16 morning: overnight trainings (ACC 254 on all joints, TRAINED for it)",
+    "r100 on the sysID fit recorded at servo KP 48 (the node sets KP 48 and back to 32 after), Butterworth 5 Hz, 80 % CW, converged at 8243. BEST IN SIM: 6.0 % drops, 2.36 rad/s; CW only 4.7 %, 2.45; CCW 8.5 %, 2.00"
+  ],
+  [
+    "r102",
+    "2026-11-15_17-52-13_r102",
+    "New 11-16 morning: overnight trainings (ACC 254 on all joints, TRAINED for it)",
+    "r100 + penalty relief on all five fingers, Butterworth 5 Hz, 80 % CW, converged at 8043. Sim: 7.7 % drops, 2.19 rad/s; CW only 6.0 %, 2.33; CCW 10.6 %, 1.84 (= r100)"
+  ],
+  [
+    "r107",
+    "2026-11-15_23-28-03_r107",
+    "New 11-16 morning: overnight trainings (ACC 254 on all joints, TRAINED for it)",
+    "r100 + uncapped rotation reward (nothing else), Butterworth 5 Hz, 800 it. Sim WORSE than r100: 18.6 % drops, 2.08 rad/s; CW only 13.1 %, 2.16; CCW 32.1 % (r100: 7.7 %, 2.17)"
+  ],
+  [
+    "r106",
+    "2026-11-15_23-27-00_r106",
+    "New 11-16 morning: overnight trainings (ACC 254 on all joints, TRAINED for it)",
+    "r100a + reward = spin speed / fixed 2.25 rad/s, uncapped (commanded speed does not matter, only the direction), Butterworth 3 Hz, converged at 8143. Sim WORSE than r100a: 20.7 % drops, 1.99 rad/s; CW only 17.6 %, 2.07 (r100a: 7.4 %, 2.05)"
+  ],
+  [
+    "r105",
+    "2026-11-16_03-58-12_r105",
+    "New 11-16 morning: overnight trainings (ACC 254 on all joints, TRAINED for it)",
+    "r100a pushed to the limits, stage 2: uncapped reward, motion penalties at 10 %, Butterworth 3 Hz, 900 it. Sim WORSE than r100a: 27.5 % drops, 1.77 rad/s; CW only 27.0 %, 1.81 (r100a: 7.4 %, 2.05)"
+  ],
+  [
+    "r105a",
+    "2026-11-15_23-28-54_r105a",
+    "New 11-16 morning: overnight trainings (ACC 254 on all joints, TRAINED for it)",
+    "r105 stage 1: uncapped reward, motion penalties OFF, Butterworth 3 Hz, converged at 8043. Sim WORSE than r100a: 27.3 % drops, 1.77 rad/s (jerky: no motion penalties)"
+  ],
+  [
+    "r100xyz",
+    "2026-11-15_12-41-09_r100xyz",
+    "New 11-16 morning: overnight trainings (ACC 254 on all joints, TRAINED for it)",
+    "r60 + ACC 254 on all, commands about x / y / z (pick the axis in the panel), Butterworth 3 Hz, converged at 8994. Sim: z 8.3 % drops, 1.72 rad/s; y 9.3 %, 0.88; x 18.8 %, 0.31 (x hardly works)"
+  ],
+  [
+    "r100a",
+    "2026-11-15_12-42-57_r100a",
+    "New 11-15 evening: r100 family (ACC 254 on all joints, TRAINED for it)",
+    "r60 retrained with ACC 254 on all 17 + 80 % CW (Butterworth 3 Hz, KP 32, 900 mA), converged at 6794. Sim: 7.4 % drops, 2.05 rad/s; CW only 6.5 %, 2.15 rad/s; CCW 8.0 %, 1.74 (r60 on the same task 13.1 %, 1.95)"
+  ],
+  [
+    "r100",
+    "2026-11-15_12-42-57_r100",
+    "New 11-15 evening: r100 family (ACC 254 on all joints, TRAINED for it)",
+    "r100a + Butterworth 5 Hz (less lag), converged at 7294. Sim: 7.7 % drops, 2.17 rad/s; CW only 5.8 %, 2.30 (fastest in sim); CCW 10.3 %, 1.87"
+  ],
+  [
+    "r100c",
+    "2026-11-15_12-42-57_r100c",
+    "New 11-15 evening: r100 family (ACC 254 on all joints, TRAINED for it)",
+    "r61 (camera model, run here without the camera) + ACC 254 on all + 80 % CW, 3 Hz, converged at 6894. Sim: 7.4 %, 1.89; CW 6.1 %, 1.97; camera on/off 7.5 / 7.4 %"
+  ],
+  [
+    "r60e_max_acc_kp48",
+    "deploy_r60e_max_acc_kp48",
+    "Deployment variants: a trained policy with other servo settings (NOT trained for them)",
+    "r60e's policy unchanged, run with ACC 254 on ALL joints AND servo KP 48 (motors' own: 32). Needs the hand controller restarted after 2026-11-15 17:00 (KP code), else the node refuses. Not trained for either: a hand experiment"
+  ]
+]
